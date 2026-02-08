@@ -65,9 +65,9 @@ jobs:
             binary: winload
             asset: winload-linux-x86_64
 
-          # ── macOS x64 (Intel runner) ──
+          # ── macOS x64 (build on Apple Silicon runner) ──
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             name: macos-x86_64
             binary: winload
             asset: winload-macos-x86_64
@@ -92,6 +92,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust -> target
+          cache-on-failure: true
 
       - name: Build release binary
         working-directory: rust
