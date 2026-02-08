@@ -101,6 +101,10 @@ py/uv.lock
 rust/target/
 rust/**/target/
 
+# Distribution / built binaries
+rust/dist/
+rust/**/dist/
+
 # Cargo.lock — 二进制项目应提交 Cargo.lock 以保证可复现构建
 # 如果是 library 项目，取消下面的注释来忽略
 # rust/Cargo.lock
