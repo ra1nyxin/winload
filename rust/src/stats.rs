@@ -143,17 +143,34 @@ impl StatisticsEngine {
 
 // ─── 格式化工具函数 ───────────────────────────────────────
 
-/// 将 bytes/s 转为人类可读的 Bit/s 格式
-pub fn format_speed(bytes_per_sec: f64) -> String {
-    let bits = bytes_per_sec * 8.0;
-    if bits >= 1024.0 * 1024.0 * 1024.0 {
-        format!("{:.2} GBit/s", bits / (1024.0 * 1024.0 * 1024.0))
-    } else if bits >= 1024.0 * 1024.0 {
-        format!("{:.2} MBit/s", bits / (1024.0 * 1024.0))
-    } else if bits >= 1024.0 {
-        format!("{:.2} kBit/s", bits / 1024.0)
-    } else {
-        format!("{:.2} Bit/s", bits)
+use crate::Unit;
+
+/// 根据单位选择格式化速率
+pub fn format_speed_unit(bytes_per_sec: f64, unit: Unit) -> String {
+    match unit {
+        Unit::Bit => {
+            let bits = bytes_per_sec * 8.0;
+            if bits >= 1024.0 * 1024.0 * 1024.0 {
+                format!("{:.2} GBit/s", bits / (1024.0 * 1024.0 * 1024.0))
+            } else if bits >= 1024.0 * 1024.0 {
+                format!("{:.2} MBit/s", bits / (1024.0 * 1024.0))
+            } else if bits >= 1024.0 {
+                format!("{:.2} kBit/s", bits / 1024.0)
+            } else {
+                format!("{:.2} Bit/s", bits)
+            }
+        }
+        Unit::Byte => {
+            if bytes_per_sec >= 1024.0 * 1024.0 * 1024.0 {
+                format!("{:.2} GB/s", bytes_per_sec / (1024.0 * 1024.0 * 1024.0))
+            } else if bytes_per_sec >= 1024.0 * 1024.0 {
+                format!("{:.2} MB/s", bytes_per_sec / (1024.0 * 1024.0))
+            } else if bytes_per_sec >= 1024.0 {
+                format!("{:.2} KB/s", bytes_per_sec / 1024.0)
+            } else {
+                format!("{:.2} B/s", bytes_per_sec)
+            }
+        }
     }
 }
 

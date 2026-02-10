@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::graph;
 use crate::stats::{self, TrafficStats};
-use crate::App;
+use crate::{App, Unit};
 
 /// 主绘制入口
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -143,6 +143,9 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             &view.engine.incoming,
             &view.engine.incoming_history,
             app.emoji,
+            app.unit,
+            app.fixed_max,
+            app.no_graph,
         );
         draw_traffic_panel(
             frame,
@@ -151,6 +154,9 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             &view.engine.outgoing,
             &view.engine.outgoing_history,
             app.emoji,
+            app.unit,
+            app.fixed_max,
+            app.no_graph,
         );
     }
 }
@@ -162,6 +168,9 @@ fn draw_traffic_panel(
     stats: &TrafficStats,
     history: &VecDeque<f64>,
     emoji: bool,
+    unit: Unit,
+    fixed_max: Option<f64>,
+    no_graph: bool,
 ) {
     if area.height < 2 || area.width < 20 {
         return;
@@ -175,8 +184,12 @@ fn draw_traffic_panel(
 
     // ── 标签行 ──
     let peak = history.iter().cloned().fold(0.0_f64, f64::max);
-    let scale_max = graph::next_power_of_2_scaled(peak);
-    let scale_label = graph::get_graph_scale_label(scale_max);
+    let scale_max = if let Some(m) = fixed_max {
+        m
+    } else {
+        graph::next_power_of_2_scaled(peak)
+    };
+    let scale_label = graph::get_graph_scale_label_unit(scale_max, unit);
     let label_line = Line::from(Span::styled(
         format!("{label} ({scale_label}):"),
         Style::default()
@@ -185,15 +198,20 @@ fn draw_traffic_panel(
     ));
     frame.render_widget(Paragraph::new(vec![label_line]), panel_chunks[0]);
 
-    // ── 内容区: 左侧图形 + 右侧统计 ──
-    let stat_width: u16 = if emoji { 28 } else { 24 };
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(10), Constraint::Length(stat_width)])
-        .split(panel_chunks[1]);
+    if no_graph {
+        // ── 无图模式: 统计信息占满宽度 ──
+        draw_stats(frame, panel_chunks[1], stats, emoji, unit);
+    } else {
+        // ── 内容区: 左侧图形 + 右侧统计 ──
+        let stat_width: u16 = if emoji { 28 } else { 24 };
+        let content_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(10), Constraint::Length(stat_width)])
+            .split(panel_chunks[1]);
 
-    draw_graph(frame, content_chunks[0], history, scale_max);
-    draw_stats(frame, content_chunks[1], stats, emoji);
+        draw_graph(frame, content_chunks[0], history, scale_max);
+        draw_stats(frame, content_chunks[1], stats, emoji, unit);
+    }
 }
 
 // ─── Graph ─────────────────────────────────────────────────
@@ -225,8 +243,8 @@ fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value:
 
 // ─── Stats ─────────────────────────────────────────────────
 
-fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool) {
-    let stat_lines = format_stats_lines(stats, emoji);
+fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool, unit: Unit) {
+    let stat_lines = format_stats_lines(stats, emoji, unit);
     let stat_count = stat_lines.len() as u16;
 
     // 底部对齐
@@ -241,7 +259,7 @@ fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool) 
     }
 }
 
-fn format_stats_lines(st: &TrafficStats, emoji: bool) -> Vec<Line<'static>> {
+fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit) -> Vec<Line<'static>> {
     let label_style = Style::default()
         .fg(Color::Cyan)
         .add_modifier(Modifier::BOLD);
@@ -251,19 +269,19 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool) -> Vec<Line<'static>> {
         vec![
             Line::from(vec![
                 Span::styled("⚡ Curr: ", label_style),
-                Span::styled(stats::format_speed(st.current), value_style),
+                Span::styled(stats::format_speed_unit(st.current, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled("📊  Avg: ", label_style),
-                Span::styled(stats::format_speed(st.average), value_style),
+                Span::styled(stats::format_speed_unit(st.average, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled("📏  Min: ", label_style),
-                Span::styled(stats::format_speed(st.minimum), value_style),
+                Span::styled(stats::format_speed_unit(st.minimum, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled("🚀  Max: ", label_style),
-                Span::styled(stats::format_speed(st.maximum), value_style),
+                Span::styled(stats::format_speed_unit(st.maximum, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled("📦  Ttl: ", label_style),
@@ -274,19 +292,19 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool) -> Vec<Line<'static>> {
         vec![
             Line::from(vec![
                 Span::styled("Curr: ", label_style),
-                Span::styled(stats::format_speed(st.current), value_style),
+                Span::styled(stats::format_speed_unit(st.current, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled(" Avg: ", label_style),
-                Span::styled(stats::format_speed(st.average), value_style),
+                Span::styled(stats::format_speed_unit(st.average, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled(" Min: ", label_style),
-                Span::styled(stats::format_speed(st.minimum), value_style),
+                Span::styled(stats::format_speed_unit(st.minimum, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled(" Max: ", label_style),
-                Span::styled(stats::format_speed(st.maximum), value_style),
+                Span::styled(stats::format_speed_unit(st.maximum, unit), value_style),
             ]),
             Line::from(vec![
                 Span::styled(" Ttl: ", label_style),

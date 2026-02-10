@@ -24,6 +24,36 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use collector::{Collector, DeviceInfo};
 use stats::StatisticsEngine;
 
+// ─── 单位枚举 ─────────────────────────────────────────────
+
+/// 显示单位
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Unit {
+    /// 以 Bit/s 显示速率 (默认)
+    Bit,
+    /// 以 Byte/s 显示速率
+    Byte,
+}
+
+/// 解析人类可读的流量值，如 "100M" → 100*1024*1024 bytes/s
+pub fn parse_max_value(s: &str) -> Result<f64, String> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Err("empty value".to_string());
+    }
+    let (num_str, multiplier) = if let Some(n) = s.strip_suffix('G').or_else(|| s.strip_suffix('g')) {
+        (n, 1024.0 * 1024.0 * 1024.0)
+    } else if let Some(n) = s.strip_suffix('M').or_else(|| s.strip_suffix('m')) {
+        (n, 1024.0 * 1024.0)
+    } else if let Some(n) = s.strip_suffix('K').or_else(|| s.strip_suffix('k')) {
+        (n, 1024.0)
+    } else {
+        (s, 1.0)
+    };
+    let num: f64 = num_str.parse().map_err(|e| format!("invalid number: {e}"))?;
+    Ok(num * multiplier)
+}
+
 // ─── CLI 参数 ──────────────────────────────────────────────
 
 /// Network Load Monitor — nload-like TUI tool
@@ -49,6 +79,18 @@ struct Args {
     /// Enable emoji decorations in TUI and output
     #[arg(short = 'e', long = "emoji")]
     emoji: bool,
+
+    /// Display unit: bit (default) or byte
+    #[arg(short = 'u', long = "unit", value_enum, default_value = "bit")]
+    unit: Unit,
+
+    /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K). Default: auto-scale
+    #[arg(short = 'm', long = "max", value_parser = parse_max_value)]
+    max: Option<f64>,
+
+    /// Hide traffic graphs, show only statistics
+    #[arg(short = 'n', long = "no-graph")]
+    no_graph: bool,
 }
 
 // ─── App 状态 ──────────────────────────────────────────────
@@ -64,6 +106,9 @@ pub struct App {
     pub views: Vec<DeviceView>,
     pub current_idx: usize,
     pub emoji: bool,
+    pub unit: Unit,
+    pub fixed_max: Option<f64>,
+    pub no_graph: bool,
     collector: Collector,
 }
 
@@ -96,6 +141,9 @@ impl App {
             views,
             current_idx,
             emoji: args.emoji,
+            unit: args.unit,
+            fixed_max: args.max,
+            no_graph: args.no_graph,
             collector,
         }
     }

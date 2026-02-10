@@ -21,6 +21,17 @@ from collector import Collector
 from ui import UI
 
 
+def parse_max_value(s: str) -> float:
+    """解析人类可读的流量值，如 '100M' → 100*1024*1024"""
+    s = s.strip()
+    multipliers = {"G": 1024**3, "g": 1024**3, "M": 1024**2, "m": 1024**2,
+                   "K": 1024, "k": 1024}
+    for suffix, mul in multipliers.items():
+        if s.endswith(suffix):
+            return float(s[:-1]) * mul
+    return float(s)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="winload",
@@ -53,13 +64,43 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="启用 emoji 装饰模式 🎉",
     )
+    parser.add_argument(
+        "-u", "--unit",
+        type=str,
+        choices=["bit", "byte"],
+        default="bit",
+        help="显示单位: bit (默认) 或 byte",
+    )
+    parser.add_argument(
+        "-m", "--max",
+        type=str,
+        default=None,
+        metavar="VALUE",
+        help="固定图形 Y 轴最大值 (如 100M, 1G, 500K)，默认自动缩放",
+    )
+    parser.add_argument(
+        "-n", "--no-graph",
+        action="store_true",
+        default=False,
+        help="隐藏流量图形，只显示统计数据",
+    )
     return parser.parse_args()
 
 
 def main_loop(stdscr: "curses.window", args: argparse.Namespace) -> None:
     """curses 主循环"""
     collector = Collector()
-    ui = UI(stdscr, collector, emoji=args.emoji)
+
+    # 解析 --max 参数
+    fixed_max = None
+    if args.max:
+        try:
+            fixed_max = parse_max_value(args.max)
+        except (ValueError, IndexError):
+            pass
+
+    ui = UI(stdscr, collector, emoji=args.emoji, unit=args.unit,
+            fixed_max=fixed_max, no_graph=args.no_graph)
 
     # 如果指定了默认设备，切换到对应索引
     if args.device:

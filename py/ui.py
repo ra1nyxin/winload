@@ -8,8 +8,8 @@ import sys
 from typing import List, Optional
 
 from collector import Collector, DeviceInfo
-from stats import StatisticsEngine, TrafficStats, format_speed, format_bytes
-from graph import render_graph, next_power_of_2_scaled
+from stats import StatisticsEngine, TrafficStats, format_speed, format_speed_unit, format_bytes
+from graph import render_graph, next_power_of_2_scaled, get_graph_scale_label_unit
 
 
 class DeviceView:
@@ -41,12 +41,17 @@ class UI:
     COLOR_HELP = 9
     COLOR_ERROR = 10
 
-    def __init__(self, stdscr: "curses.window", collector: Collector, emoji: bool = False):
+    def __init__(self, stdscr: "curses.window", collector: Collector,
+                 emoji: bool = False, unit: str = "bit",
+                 fixed_max: Optional[float] = None, no_graph: bool = False):
         self.stdscr = stdscr
         self.collector = collector
         self.current_device_idx = 0
         self.views: List[DeviceView] = []
         self.emoji = emoji
+        self.unit = unit
+        self.fixed_max = fixed_max
+        self.no_graph = no_graph
 
         # 初始化颜色
         curses.start_color()
@@ -210,23 +215,52 @@ class UI:
         stat_lines = self._format_stats(stats)
         stat_width = max(len(s) for s in stat_lines) + 2 if stat_lines else 20
 
+        # 确定缩放上限
+        if self.fixed_max is not None:
+            scale_max = self.fixed_max
+        else:
+            peak = max(history) if history else 0.0
+            scale_max = next_power_of_2_scaled(peak)
+
         # 标签行
-        peak = max(history) if history else 0.0
-        scale_max = next_power_of_2_scaled(peak)
-        from graph import get_graph_scale_label
-        scale_label = get_graph_scale_label(scale_max)
+        scale_label = get_graph_scale_label_unit(scale_max, self.unit)
         label_text = f"{label} ({scale_label}):"
         self._safe_addstr(
             start_row, 0, label_text,
             curses.color_pair(self.COLOR_LABEL) | curses.A_BOLD,
         )
 
-        # 图形区域尺寸
         graph_rows = panel_height - 1  # 去掉标签行
-        graph_cols = max(max_x - stat_width - 2, 10)
 
         if graph_rows < 1:
             return
+
+        if self.no_graph:
+            # 不绘制图形，只绘制统计信息（左对齐）
+            stat_start_row = start_row + 1 + graph_rows - len(stat_lines)
+            stat_col = 2
+            for i, s in enumerate(stat_lines):
+                r = stat_start_row + i
+                if r < start_row + 1:
+                    continue
+                parts = s.split(": ", 1)
+                if len(parts) == 2:
+                    lbl_part = parts[0] + ": "
+                    val_part = parts[1]
+                    self._safe_addstr(
+                        r, stat_col, lbl_part,
+                        curses.color_pair(self.COLOR_STAT_LABEL) | curses.A_BOLD,
+                    )
+                    self._safe_addstr(
+                        r, stat_col + len(lbl_part), val_part,
+                        curses.color_pair(self.COLOR_STAT_VALUE),
+                    )
+                else:
+                    self._safe_addstr(r, stat_col, s, curses.color_pair(self.COLOR_STAT_VALUE))
+            return
+
+        # 图形区域尺寸
+        graph_cols = max(max_x - stat_width - 2, 10)
 
         # 渲染图形
         lines = render_graph(
@@ -275,19 +309,20 @@ class UI:
 
     def _format_stats(self, stats: TrafficStats) -> List[str]:
         """格式化 5 行统计文本"""
+        fmt = lambda v: format_speed_unit(v, self.unit)
         if self.emoji:
             return [
-                f"⚡ Curr: {format_speed(stats.current)}",
-                f"📊  Avg: {format_speed(stats.average)}",
-                f"📏  Min: {format_speed(stats.minimum)}",
-                f"🚀  Max: {format_speed(stats.maximum)}",
+                f"⚡ Curr: {fmt(stats.current)}",
+                f"📊  Avg: {fmt(stats.average)}",
+                f"📏  Min: {fmt(stats.minimum)}",
+                f"🚀  Max: {fmt(stats.maximum)}",
                 f"📦  Ttl: {format_bytes(stats.total)}",
             ]
         return [
-            f"Curr: {format_speed(stats.current)}",
-            f" Avg: {format_speed(stats.average)}",
-            f" Min: {format_speed(stats.minimum)}",
-            f" Max: {format_speed(stats.maximum)}",
+            f"Curr: {fmt(stats.current)}",
+            f" Avg: {fmt(stats.average)}",
+            f" Min: {fmt(stats.minimum)}",
+            f" Max: {fmt(stats.maximum)}",
             f" Ttl: {format_bytes(stats.total)}",
         ]
 

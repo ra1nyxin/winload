@@ -39,6 +39,9 @@ winload -d "Wi-Fi"   # Start with a specific device
 | `-a`, `--average <SEC>` | Average calculation window in seconds | `300` |
 | `-d`, `--device <NAME>` | Default device name (partial match) | — |
 | `-e`, `--emoji` | Enable emoji decorations in TUI 🎉 | off |
+| `-u`, `--unit <UNIT>` | Display unit: `bit` or `byte` | `bit` |
+| `-m`, `--max <VALUE>` | Fixed Y-axis max (e.g. `10M`, `1G`, `500K`) | auto |
+| `-n`, `--no-graph` | Hide graph, show stats only | off |
 | `--debug-info` | Print network interface debug info and exit *(Rust only)* | — |
 | `-h`, `--help` | Print help | — |
 | `-V`, `--version` | Print version *(Rust only)* | — |

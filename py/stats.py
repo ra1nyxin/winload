@@ -130,17 +130,35 @@ class StatisticsEngine:
 
 def format_speed(bytes_per_sec: float) -> str:
     """将 bytes/s 转为人类可读的 Bit/s 格式"""
-    bits = bytes_per_sec * 8
-    units = [
-        (1024 ** 3, "GBit/s"),
-        (1024 ** 2, "MBit/s"),
-        (1024,      "kBit/s"),
-        (1,         "Bit/s"),
-    ]
-    for threshold, unit in units:
-        if bits >= threshold:
-            return f"{bits / threshold:.2f} {unit}"
-    return "0.00 Bit/s"
+    return format_speed_unit(bytes_per_sec, "bit")
+
+
+def format_speed_unit(bytes_per_sec: float, unit: str = "bit") -> str:
+    """根据单位选择格式化速率 (unit: 'bit' 或 'byte')"""
+    if unit == "byte":
+        b = bytes_per_sec
+        units = [
+            (1024 ** 3, "GB/s"),
+            (1024 ** 2, "MB/s"),
+            (1024,      "KB/s"),
+            (1,         "B/s"),
+        ]
+        for threshold, u in units:
+            if b >= threshold:
+                return f"{b / threshold:.2f} {u}"
+        return "0.00 B/s"
+    else:
+        bits = bytes_per_sec * 8
+        units = [
+            (1024 ** 3, "GBit/s"),
+            (1024 ** 2, "MBit/s"),
+            (1024,      "kBit/s"),
+            (1,         "Bit/s"),
+        ]
+        for threshold, u in units:
+            if bits >= threshold:
+                return f"{bits / threshold:.2f} {u}"
+        return "0.00 Bit/s"
 
 
 def format_bytes(total_bytes: int) -> str:

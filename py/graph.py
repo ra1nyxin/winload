@@ -95,3 +95,9 @@ def get_graph_scale_label(max_value: float) -> str:
     """返回图形缩放比例的标签文字，例如 '100% @ 1.25 MBit/s'"""
     from stats import format_speed
     return f"100% @ {format_speed(max_value)}"
+
+
+def get_graph_scale_label_unit(max_value: float, unit: str = "bit") -> str:
+    """返回图形缩放比例的标签文字（支持 unit 选择）"""
+    from stats import format_speed_unit
+    return f"100% @ {format_speed_unit(max_value, unit)}"

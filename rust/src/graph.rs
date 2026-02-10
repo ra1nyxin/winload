@@ -85,8 +85,8 @@ pub fn render_graph(
     lines
 }
 
-/// 返回图形缩放比例的标签文字，例如 "100% @ 1.25 MBit/s"
-pub fn get_graph_scale_label(max_value: f64) -> String {
-    use crate::stats::format_speed;
-    format!("100% @ {}", format_speed(max_value))
+/// 返回带单位选择的图形缩放标签
+pub fn get_graph_scale_label_unit(max_value: f64, unit: crate::Unit) -> String {
+    use crate::stats::format_speed_unit;
+    format!("100% @ {}", format_speed_unit(max_value, unit))
 }
