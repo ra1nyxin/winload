@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::graph;
 use crate::stats::{self, TrafficStats};
-use crate::{App, Unit};
+use crate::{App, BarStyle, Unit};
 
 /// 主绘制入口
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -50,10 +50,20 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     draw_header(frame, chunks[0], app, show_loopback_warning);
     draw_panels(frame, chunks[1], app);
-    draw_help(frame, chunks[2], app.emoji);
+    draw_help(frame, chunks[2], app.emoji, app.bar_style);
 }
 
 // ─── Header ────────────────────────────────────────────────
+
+/// 将文本用空格填充到指定宽度
+fn pad_to_width(text: &str, width: usize) -> String {
+    let text_len = text.chars().count();
+    if text_len >= width {
+        text.to_string()
+    } else {
+        format!("{}{}", text, " ".repeat(width - text_len))
+    }
+}
 
 fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: bool) {
     if let Some(view) = app.current_view() {
@@ -81,20 +91,45 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             )
         };
 
-        let header = Line::from(Span::styled(
-            header_text,
-            Style::default()
+        let width = area.width as usize;
+
+        let header_style = match app.bar_style {
+            BarStyle::Fill => Style::default()
+                .bg(Color::White)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+            BarStyle::Color => Style::default()
+                .bg(Color::White)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+            BarStyle::Plain => Style::default()
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
-        ));
+        };
+
+        let header_display = if app.bar_style == BarStyle::Fill {
+            pad_to_width(&header_text, width)
+        } else {
+            header_text
+        };
+
+        let header = Line::from(Span::styled(header_display, header_style));
 
         let mut lines = vec![header];
         
         if show_loopback_warning {
-            lines.push(Line::from(Span::styled(
-                " \u{26a0} Loopback traffic stats are not available on Windows",
-                Style::default().fg(Color::Yellow),
-            )));
+            let warn_text = " \u{26a0} Loopback traffic stats are not available on Windows";
+            let warn_style = match app.bar_style {
+                BarStyle::Fill => Style::default().bg(Color::Red).fg(Color::White),
+                BarStyle::Color => Style::default().bg(Color::Red).fg(Color::White),
+                BarStyle::Plain => Style::default().fg(Color::Yellow),
+            };
+            let warn_display = if app.bar_style == BarStyle::Fill {
+                pad_to_width(warn_text, width)
+            } else {
+                warn_text.to_string()
+            };
+            lines.push(Line::from(Span::styled(warn_display, warn_style)));
         }
 
         let text_height = lines.len() as u16;
@@ -143,7 +178,10 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             &view.engine.incoming,
             &view.engine.incoming_history,
             app.emoji,
+            app.unicode,
             app.unit,
+            app.bar_style,
+            app.in_color,
             app.fixed_max,
             app.no_graph,
         );
@@ -154,7 +192,10 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             &view.engine.outgoing,
             &view.engine.outgoing_history,
             app.emoji,
+            app.unicode,
             app.unit,
+            app.bar_style,
+            app.out_color,
             app.fixed_max,
             app.no_graph,
         );
@@ -168,7 +209,10 @@ fn draw_traffic_panel(
     stats: &TrafficStats,
     history: &VecDeque<f64>,
     emoji: bool,
+    unicode: bool,
     unit: Unit,
+    bar_style: BarStyle,
+    graph_color: Color,
     fixed_max: Option<f64>,
     no_graph: bool,
 ) {
@@ -190,12 +234,28 @@ fn draw_traffic_panel(
         graph::next_power_of_2_scaled(peak)
     };
     let scale_label = graph::get_graph_scale_label_unit(scale_max, unit);
-    let label_line = Line::from(Span::styled(
-        format!("{label} ({scale_label}):"),
-        Style::default()
-            .fg(Color::Green)
+    let label_text = format!("{label} ({scale_label}):");
+    let width = area.width as usize;
+
+    let label_style = match bar_style {
+        BarStyle::Fill => Style::default()
+            .bg(graph_color)
+            .fg(Color::Black)
             .add_modifier(Modifier::BOLD),
-    ));
+        BarStyle::Color => Style::default()
+            .bg(graph_color)
+            .fg(Color::Black)
+            .add_modifier(Modifier::BOLD),
+        BarStyle::Plain => Style::default()
+            .fg(graph_color)
+            .add_modifier(Modifier::BOLD),
+    };
+    let label_display = if bar_style == BarStyle::Fill {
+        pad_to_width(&label_text, width)
+    } else {
+        label_text
+    };
+    let label_line = Line::from(Span::styled(label_display, label_style));
     frame.render_widget(Paragraph::new(vec![label_line]), panel_chunks[0]);
 
     if no_graph {
@@ -209,18 +269,21 @@ fn draw_traffic_panel(
             .constraints([Constraint::Min(10), Constraint::Length(stat_width)])
             .split(panel_chunks[1]);
 
-        draw_graph(frame, content_chunks[0], history, scale_max);
+        draw_graph(frame, content_chunks[0], history, scale_max, unicode, graph_color);
         draw_stats(frame, content_chunks[1], stats, emoji, unit);
     }
 }
 
 // ─── Graph ─────────────────────────────────────────────────
 
-fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value: f64) {
+fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value: f64, unicode: bool, graph_color: Color) {
     let width = area.width as usize;
     let height = area.height as usize;
 
-    let lines = graph::render_graph(history, width, height, max_value);
+    let lines = graph::render_graph(history, width, height, max_value, unicode);
+
+    // 较暗的颜色用于低密度区域
+    let dim_color = Color::DarkGray;
 
     let styled_lines: Vec<Line> = lines
         .iter()
@@ -228,9 +291,15 @@ fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value:
             let spans: Vec<Span> = line
                 .chars()
                 .map(|ch| match ch {
-                    '#' => Span::styled("#", Style::default().fg(Color::Green)),
-                    '|' => Span::styled("|", Style::default().fg(Color::Green)),
-                    '.' => Span::styled(".", Style::default().fg(Color::DarkGray)),
+                    // Unicode block chars
+                    '█' => Span::styled("█", Style::default().fg(graph_color)),
+                    '▓' => Span::styled("▓", Style::default().fg(graph_color)),
+                    '░' => Span::styled("░", Style::default().fg(dim_color)),
+                    '·' => Span::styled("·", Style::default().fg(dim_color)),
+                    // ASCII chars
+                    '#' => Span::styled("#", Style::default().fg(graph_color)),
+                    '|' => Span::styled("|", Style::default().fg(graph_color)),
+                    '.' => Span::styled(".", Style::default().fg(dim_color)),
                     _ => Span::raw(" "),
                 })
                 .collect();
@@ -316,16 +385,31 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit) -> Vec<Line<'s
 
 // ─── Help / Error ──────────────────────────────────────────
 
-fn draw_help(frame: &mut Frame, area: Rect, emoji: bool) {
+fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
     let help_text = if emoji {
         " ⬅️/➡️ Switch Device | 🚪 q Quit"
     } else {
         " \u{2190}/\u{2192} Switch Device | q Quit"
     };
-    let help = Line::from(Span::styled(
-        help_text,
-        Style::default().fg(Color::Yellow),
-    ));
+
+    let width = area.width as usize;
+
+    let help_style = match bar_style {
+        BarStyle::Fill => Style::default()
+            .bg(Color::White)
+            .fg(Color::Black),
+        BarStyle::Color => Style::default()
+            .bg(Color::White)
+            .fg(Color::Black),
+        BarStyle::Plain => Style::default()
+            .fg(Color::Yellow),
+    };
+    let help_display = if bar_style == BarStyle::Fill {
+        pad_to_width(help_text, width)
+    } else {
+        help_text.to_string()
+    };
+    let help = Line::from(Span::styled(help_display, help_style));
     frame.render_widget(Paragraph::new(vec![help]), area);
 }
 

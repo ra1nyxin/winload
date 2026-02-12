@@ -199,3 +199,6 @@ test_output/
 # 本地配置（如果有）
 local_config.*
 .env.local
+
+# 临时文件夹
+tmp/

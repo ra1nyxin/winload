@@ -1,5 +1,7 @@
-//! ASCII 流量图形渲染
-//! 仿 nload 的柱状图效果，使用 4 级 ASCII 字符: ' ', '.', '|', '#'
+//! 流量图形渲染
+//! 仿 nload 的柱状图效果
+//! - ASCII 模式 (默认): 使用 4 级字符: ' ', '.', '|', '#'
+//! - Unicode 模式 (-U): 使用 Unicode block 字符: ' ', '·', '░', '▓', '█'
 
 use std::collections::VecDeque;
 
@@ -15,12 +17,13 @@ pub fn next_power_of_2_scaled(value: f64) -> f64 {
     result
 }
 
-/// 渲染 ASCII 柱状图
+/// 渲染柱状图
 ///
 /// - `history`: 速率历史 (front = 最新值，越往后越旧)
 /// - `width`:   图形宽度（字符列数）
 /// - `height`:  图形高度（字符行数）
 /// - `max_value`: 缩放上限，0.0 表示自动
+/// - `unicode`:  true 使用 Unicode block 字符，false 使用 ASCII 字符
 ///
 /// 返回 `height` 行的字符串列表，每行 `width` 个字符
 pub fn render_graph(
@@ -28,6 +31,7 @@ pub fn render_graph(
     width: usize,
     height: usize,
     max_value: f64,
+    unicode: bool,
 ) -> Vec<String> {
     if width == 0 || height == 0 {
         return vec![];
@@ -53,6 +57,13 @@ pub fn render_graph(
     };
     let max_val = if max_val <= 0.0 { 2048.0 } else { max_val };
 
+    // 字符集: (full, high, low, dot)
+    let (ch_full, ch_high, ch_low, ch_dot) = if unicode {
+        ('█', '▓', '░', '·')
+    } else {
+        ('#', '|', '.', '.')
+    };
+
     // 逐行渲染 (第 0 行 = 最顶部)
     let mut lines = Vec::with_capacity(height);
     for row in 0..height {
@@ -70,13 +81,13 @@ pub fn render_graph(
             } else {
                 let rest = value - lower_limit;
                 if rest >= traffic_per_line {
-                    chars.push('#');
+                    chars.push(ch_full);
                 } else if rest >= traffic_per_line * 0.7 {
-                    chars.push('|');
+                    chars.push(ch_high);
                 } else if rest >= traffic_per_line * 0.3 {
-                    chars.push('.');
+                    chars.push(ch_low);
                 } else {
-                    chars.push(' ');
+                    chars.push(ch_dot);
                 }
             }
         }
