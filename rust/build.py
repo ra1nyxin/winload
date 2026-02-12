@@ -19,7 +19,7 @@ OUTPUT_DIR = RUST_DIR / "dist"
 
 TARGETS = [
     ("x86_64-unknown-linux-musl", "winload", "winload-linux-x86_64"),
-    ("x86_64-pc-windows-gnu", "winload.exe", "winload-windows-x86_64.exe"),
+    # ("x86_64-pc-windows-gnu", "winload.exe", "winload-windows-x86_64.exe"), # Suspended for local dev
 ]
 
 

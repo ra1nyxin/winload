@@ -39,6 +39,11 @@ impl Collector {
         }
     }
 
+    /// 获取自启动以来的秒数
+    pub fn elapsed_secs(&self) -> f64 {
+        self.start.elapsed().as_secs_f64()
+    }
+
     /// 打印所有网络接口的调试信息
     pub fn print_debug_info(&self) {
         println!("\n=== Network Interfaces Debug Info ===");

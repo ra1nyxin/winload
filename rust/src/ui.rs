@@ -14,6 +14,8 @@ use ratatui::{
 use crate::graph;
 use crate::stats::{self, TrafficStats};
 use crate::{App, BarStyle, Unit};
+#[cfg(target_os = "windows")]
+use crate::loopback::LoopbackMode;
 
 /// 主绘制入口
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -24,13 +26,14 @@ pub fn draw(frame: &mut Frame, app: &App) {
         return;
     }
 
-    // 判断当前是否为 Windows 平台的 Loopback 设备，需要额外一行显示警告
+    // 判断当前是否为 Windows 平台的 Loopback 设备且未启用捕获
     let show_loopback_warning = {
         #[cfg(target_os = "windows")]
         {
-            app.current_view()
-                .map(|v| v.info.name.to_lowercase().contains("loopback"))
-                .unwrap_or(false)
+            app.loopback_mode == LoopbackMode::None
+                && app.current_view()
+                    .map(|v| v.info.name.to_lowercase().contains("loopback"))
+                    .unwrap_or(false)
         }
         #[cfg(not(target_os = "windows"))]
         { false }
@@ -118,7 +121,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
         let mut lines = vec![header];
         
         if show_loopback_warning {
-            let warn_text = " \u{26a0} Loopback traffic stats are not available on Windows";
+            let warn_text = " \u{26a0} Windows loopback requires --npcap (Recommended) or --etw";
             let warn_style = match app.bar_style {
                 BarStyle::Fill => Style::default().bg(Color::Red).fg(Color::White),
                 BarStyle::Color => Style::default().bg(Color::Red).fg(Color::White),
@@ -387,9 +390,15 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit) -> Vec<Line<'s
 
 fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
     let help_text = if emoji {
-        " ⬅️/➡️ Switch Device | 🚪 q Quit"
+        #[cfg(target_os = "windows")]
+        { " ⬅️/➡️ Switch Device | 🚪 q Quit | 💡 Loopback: --npcap" }
+        #[cfg(not(target_os = "windows"))]
+        { " ⬅️/➡️ Switch Device | 🚪 q Quit" }
     } else {
-        " \u{2190}/\u{2192} Switch Device | q Quit"
+        #[cfg(target_os = "windows")]
+        { " \u{2190}/\u{2192} Switch Device | q Quit | Loopback: --npcap" }
+        #[cfg(not(target_os = "windows"))]
+        { " \u{2190}/\u{2192} Switch Device | q Quit" }
     };
 
     let width = area.width as usize;

@@ -139,6 +139,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.cross_packages }}
 
+      # Windows: 下载 Npcap SDK，pcap crate 链接 wpcap.lib 需要
+      - name: Install Npcap SDK (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $sdkUrl = "https://npcap.com/dist/npcap-sdk-1.13.zip"
+          $zipPath = "$env:RUNNER_TEMP\npcap-sdk.zip"
+          $extractPath = "$env:RUNNER_TEMP\npcap-sdk"
+          
+          Write-Host "📥 Downloading Npcap SDK..."
+          Invoke-WebRequest -Uri $sdkUrl -OutFile $zipPath
+          
+          Write-Host "📦 Extracting Npcap SDK..."
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          
+          # 根据 target 选择正确的 lib 目录
+          $target = "${{ matrix.target }}"
+          if ($target -like "*aarch64*") {
+            $arch = "ARM64"
+          } else {
+            $arch = "x64"
+          }
+          $libDir = "$extractPath\Lib\$arch"
+          Write-Host "📂 Npcap SDK lib dir ($arch): $libDir"
+          Get-ChildItem $libDir
+          
+          echo "LIB=$libDir;$env:LIB" >> $env:GITHUB_ENV
+          Write-Host "✅ Npcap SDK ready"
+
       - name: Build release binary
         shell: bash
         working-directory: rust

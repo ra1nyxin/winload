@@ -12,6 +12,7 @@
 
 mod collector;
 mod graph;
+mod loopback;
 mod stats;
 mod ui;
 
@@ -22,6 +23,7 @@ use clap::Parser;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use collector::{Collector, DeviceInfo};
+use loopback::{LoopbackCounters, LoopbackMode};
 use stats::StatisticsEngine;
 
 // ─── 单位枚举 ─────────────────────────────────────────────
@@ -130,6 +132,14 @@ struct Args {
     /// Hide traffic graphs, show only statistics
     #[arg(short = 'n', long = "no-graph")]
     no_graph: bool,
+
+    /// [Windows only] Use Npcap to capture loopback traffic (recommended)
+    #[arg(long = "npcap", conflicts_with = "etw")]
+    npcap: bool,
+
+    /// [Windows only] Use ETW/GetIfEntry2 to capture loopback traffic (experimental)
+    #[arg(long = "etw", conflicts_with = "npcap")]
+    etw: bool,
 }
 
 // ─── App 状态 ──────────────────────────────────────────────
@@ -152,6 +162,8 @@ pub struct App {
     pub out_color: ratatui::style::Color,
     pub fixed_max: Option<f64>,
     pub no_graph: bool,
+    pub loopback_mode: LoopbackMode,
+    loopback_counters: Option<LoopbackCounters>,
     collector: Collector,
 }
 
@@ -180,6 +192,14 @@ impl App {
             }
         }
 
+        let loopback_mode = if args.npcap {
+            LoopbackMode::Npcap
+        } else if args.etw {
+            LoopbackMode::Etw
+        } else {
+            LoopbackMode::None
+        };
+
         Self {
             views,
             current_idx,
@@ -191,6 +211,8 @@ impl App {
             out_color: args.out_color.unwrap_or(ratatui::style::Color::Rgb(0xff, 0xaf, 0x00)),
             fixed_max: args.max,
             no_graph: args.no_graph,
+            loopback_mode,
+            loopback_counters: None,
             collector,
         }
     }
@@ -200,7 +222,20 @@ impl App {
     }
 
     fn update(&mut self) {
-        let snapshots = self.collector.collect();
+        let mut snapshots = self.collector.collect();
+
+        // 如果启用了回环捕获，用实时计数器覆盖 loopback 的假数据
+        if let Some(ref counters) = self.loopback_counters {
+            let elapsed = self.collector.elapsed_secs();
+            for (name, snap) in snapshots.iter_mut() {
+                if name.to_lowercase().contains("loopback") {
+                    snap.bytes_recv = counters.get_recv();
+                    snap.bytes_sent = counters.get_sent();
+                    snap.elapsed_secs = elapsed;
+                }
+            }
+        }
+
         for view in &mut self.views {
             if let Some(snap) = snapshots.get(&view.info.name) {
                 view.engine.update(snap.clone());
@@ -225,6 +260,28 @@ impl App {
 
 fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
     let mut app = App::new(&args);
+
+    // 启动回环捕获 (如果指定了 --npcap 或 --etw)
+    if app.loopback_mode != LoopbackMode::None {
+        let counters = LoopbackCounters::new();
+        let result = match app.loopback_mode {
+            LoopbackMode::Npcap => loopback::platform::start_npcap(counters.clone()),
+            LoopbackMode::Etw => loopback::platform::start_etw(counters.clone()),
+            LoopbackMode::None => unreachable!(),
+        };
+        match result {
+            Ok(()) => {
+                app.loopback_counters = Some(counters);
+            }
+            Err(e) => {
+                // 恢复终端后打印错误
+                ratatui::restore();
+                eprintln!("Error: Failed to start loopback capture:\n{e}");
+                std::process::exit(1);
+            }
+        }
+    }
+
     let tick_rate = Duration::from_millis(args.interval);
     let mut last_tick = Instant::now();
 
