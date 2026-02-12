@@ -43,7 +43,9 @@ class UI:
 
     def __init__(self, stdscr: "curses.window", collector: Collector,
                  emoji: bool = False, unit: str = "bit",
-                 fixed_max: Optional[float] = None, no_graph: bool = False):
+                 fixed_max: Optional[float] = None, no_graph: bool = False,
+                 unicode: bool = False, bar_style: str = "fill",
+                 in_color: Optional[tuple] = None, out_color: Optional[tuple] = None):
         self.stdscr = stdscr
         self.collector = collector
         self.current_device_idx = 0
@@ -52,6 +54,10 @@ class UI:
         self.unit = unit
         self.fixed_max = fixed_max
         self.no_graph = no_graph
+        self.unicode = unicode
+        self.bar_style = bar_style
+        self.in_color_rgb = in_color
+        self.out_color_rgb = out_color
 
         # 初始化颜色
         curses.start_color()
@@ -67,6 +73,29 @@ class UI:
             curses.init_pair(self.COLOR_STAT_VALUE, curses.COLOR_WHITE, -1)
             curses.init_pair(self.COLOR_HELP, curses.COLOR_YELLOW, -1)
             curses.init_pair(self.COLOR_ERROR, curses.COLOR_RED, -1)
+        except curses.error:
+            pass
+
+        # 自定义颜色 (in/out graph colors)
+        # 颜色对 11-16 用于自定义 graph 颜色
+        self.COLOR_IN_GRAPH = self.COLOR_GRAPH_FULL   # 默认复用绿色
+        self.COLOR_OUT_GRAPH = self.COLOR_GRAPH_FULL
+        self.COLOR_IN_LABEL = self.COLOR_LABEL
+        self.COLOR_OUT_LABEL = self.COLOR_LABEL
+        self._can_change_color = curses.can_change_color()
+        try:
+            if self._can_change_color and self.in_color_rgb:
+                r, g, b = self.in_color_rgb
+                curses.init_color(20, r * 1000 // 255, g * 1000 // 255, b * 1000 // 255)
+                curses.init_pair(11, 20, -1)
+                self.COLOR_IN_GRAPH = 11
+                self.COLOR_IN_LABEL = 11
+            if self._can_change_color and self.out_color_rgb:
+                r, g, b = self.out_color_rgb
+                curses.init_color(21, r * 1000 // 255, g * 1000 // 255, b * 1000 // 255)
+                curses.init_pair(12, 21, -1)
+                self.COLOR_OUT_GRAPH = 12
+                self.COLOR_OUT_LABEL = 12
         except curses.error:
             pass
 
@@ -141,13 +170,19 @@ class UI:
                 f"Device {view.name}{addr_str} "
                 f"({device_idx + 1}/{len(self.views)}):"
             )
-        self._safe_addstr(row, 0, header, curses.color_pair(self.COLOR_HEADER) | curses.A_BOLD)
+        header_attr = self._get_bar_attr(self.COLOR_HEADER, bold=True)
+        if self.bar_style == "fill":
+            header = header.ljust(max_x - 1)
+        self._safe_addstr(row, 0, header, header_attr)
         row += 1
 
         # ── Loopback 警告（仅 Windows）──
         if self._is_loopback_on_windows(view):
             warning = " \u26a0 Loopback traffic stats are not available on Windows"
-            self._safe_addstr(row, 0, warning, curses.color_pair(self.COLOR_HELP))
+            warn_attr = self._get_bar_attr(self.COLOR_HELP)
+            if self.bar_style == "fill":
+                warning = warning.ljust(max_x - 1)
+            self._safe_addstr(row, 0, warning, warn_attr)
             row += 1
 
         # ── 分隔线 ──
@@ -173,6 +208,7 @@ class UI:
             label=in_label,
             stats=view.engine.incoming,
             history=view.engine.incoming_history,
+            is_incoming=True,
         )
         row += panel_height
 
@@ -185,6 +221,7 @@ class UI:
             label=out_label,
             stats=view.engine.outgoing,
             history=view.engine.outgoing_history,
+            is_incoming=False,
         )
         row += panel_height
 
@@ -193,10 +230,13 @@ class UI:
             help_text = " ⬅️/➡️ Switch Device | 🚪 q Quit"
         else:
             help_text = " ←/→ Switch Device | q Quit"
+        help_attr = self._get_bar_attr(self.COLOR_HELP)
+        if self.bar_style == "fill":
+            help_text = help_text.ljust(max_x - 1)
         self._safe_addstr(
             max_y - 1, 0,
             help_text[:max_x - 1],
-            curses.color_pair(self.COLOR_HELP),
+            help_attr,
         )
 
         self.stdscr.noutrefresh()
@@ -209,8 +249,13 @@ class UI:
         label: str,
         stats: TrafficStats,
         history,
+        is_incoming: bool = True,
     ) -> None:
         """绘制一个流量面板（图形 + 统计）"""
+        # 选择颜色
+        graph_color = self.COLOR_IN_GRAPH if is_incoming else self.COLOR_OUT_GRAPH
+        label_color = self.COLOR_IN_LABEL if is_incoming else self.COLOR_OUT_LABEL
+
         # 统计信息（5 行）
         stat_lines = self._format_stats(stats)
         stat_width = max(len(s) for s in stat_lines) + 2 if stat_lines else 20
@@ -225,9 +270,11 @@ class UI:
         # 标签行
         scale_label = get_graph_scale_label_unit(scale_max, self.unit)
         label_text = f"{label} ({scale_label}):"
+        label_attr = self._get_bar_attr(label_color, bold=True)
+        if self.bar_style == "fill":
+            label_text = label_text.ljust(max_x - 1)
         self._safe_addstr(
-            start_row, 0, label_text,
-            curses.color_pair(self.COLOR_LABEL) | curses.A_BOLD,
+            start_row, 0, label_text, label_attr,
         )
 
         graph_rows = panel_height - 1  # 去掉标签行
@@ -268,17 +315,24 @@ class UI:
             width=graph_cols,
             height=graph_rows,
             max_value=scale_max,
+            unicode=self.unicode,
         )
+
+        # Unicode 和 ASCII 字符映射
+        if self.unicode:
+            full_chars = {"█", "▓"}
+            dim_chars = {"░"}
+        else:
+            full_chars = {"#", "|"}
+            dim_chars = {"."}
 
         # 绘制图形
         for i, line in enumerate(lines):
             row = start_row + 1 + i
             for col_idx, ch in enumerate(line):
-                if ch == "#":
-                    color = curses.color_pair(self.COLOR_GRAPH_FULL)
-                elif ch == "|":
-                    color = curses.color_pair(self.COLOR_GRAPH_HIGH)
-                elif ch == ".":
+                if ch in full_chars:
+                    color = curses.color_pair(graph_color)
+                elif ch in dim_chars:
                     color = curses.color_pair(self.COLOR_GRAPH_LOW) | curses.A_DIM
                 else:
                     continue  # 空格不画
@@ -306,6 +360,18 @@ class UI:
                 )
             else:
                 self._safe_addstr(r, stat_col, s, curses.color_pair(self.COLOR_STAT_VALUE))
+
+    def _get_bar_attr(self, color_pair_id: int, bold: bool = False) -> int:
+        """根据 bar_style 返回对应的 curses 属性"""
+        attr = curses.color_pair(color_pair_id)
+        if bold:
+            attr |= curses.A_BOLD
+        if self.bar_style in ("fill", "color"):
+            # fill: 背景色铺满整行 (文字会被 ljust 填充)
+            # color: 背景色仅在文字上 (不 ljust)
+            attr |= curses.A_REVERSE
+        # plain: 无背景色，纯前景着色
+        return attr
 
     def _format_stats(self, stats: TrafficStats) -> List[str]:
         """格式化 5 行统计文本"""

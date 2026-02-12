@@ -39,7 +39,20 @@ pub fn draw(frame: &mut Frame, app: &App) {
         { false }
     };
 
-    let header_height = if show_loopback_warning { 3 } else { 2 };
+    // 使用 --etw 时在 loopback 设备上显示计数器为 0 的警告
+    let show_etw_warning = {
+        #[cfg(target_os = "windows")]
+        {
+            app.loopback_mode == LoopbackMode::Etw
+                && app.current_view()
+                    .map(|v| v.info.name.to_lowercase().contains("loopback"))
+                    .unwrap_or(false)
+        }
+        #[cfg(not(target_os = "windows"))]
+        { false }
+    };
+
+    let header_height = if show_loopback_warning || show_etw_warning { 3 } else { 2 };
 
     // 主布局: 头部(2或3行) + 内容 + 帮助栏(1行)
     let chunks = Layout::default()
@@ -51,7 +64,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         ])
         .split(area);
 
-    draw_header(frame, chunks[0], app, show_loopback_warning);
+    draw_header(frame, chunks[0], app, show_loopback_warning, show_etw_warning);
     draw_panels(frame, chunks[1], app);
     draw_help(frame, chunks[2], app.emoji, app.bar_style);
 }
@@ -68,7 +81,7 @@ fn pad_to_width(text: &str, width: usize) -> String {
     }
 }
 
-fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: bool) {
+fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: bool, show_etw_warning: bool) {
     if let Some(view) = app.current_view() {
         let addr_str = if !view.info.addrs.is_empty() {
             format!(" [{}]", view.info.addrs[0])
@@ -121,7 +134,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
         let mut lines = vec![header];
         
         if show_loopback_warning {
-            let warn_text = " \u{26a0} Windows loopback requires --npcap (Recommended) or --etw";
+            let warn_text = " \u{26a0} Loopback: use --npcap (npcap.com) or --etw";
             let warn_style = match app.bar_style {
                 BarStyle::Fill => Style::default().bg(Color::Red).fg(Color::White),
                 BarStyle::Color => Style::default().bg(Color::Red).fg(Color::White),
@@ -133,6 +146,25 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
                 warn_text.to_string()
             };
             lines.push(Line::from(Span::styled(warn_display, warn_style)));
+        }
+
+        if show_etw_warning {
+            let etw_text = if app.emoji {
+                " ⚠️ ETW: 大多数 Windows loopback 计数器为 0，建议使用 --npcap (npcap.com)"
+            } else {
+                " \u{26a0} ETW: loopback counters are 0 on most Windows, try --npcap (npcap.com)"
+            };
+            let etw_style = match app.bar_style {
+                BarStyle::Fill => Style::default().bg(Color::Yellow).fg(Color::Black),
+                BarStyle::Color => Style::default().bg(Color::Yellow).fg(Color::Black),
+                BarStyle::Plain => Style::default().fg(Color::Yellow),
+            };
+            let etw_display = if app.bar_style == BarStyle::Fill {
+                pad_to_width(etw_text, width)
+            } else {
+                etw_text.to_string()
+            };
+            lines.push(Line::from(Span::styled(etw_display, etw_style)));
         }
 
         let text_height = lines.len() as u16;

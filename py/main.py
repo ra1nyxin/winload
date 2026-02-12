@@ -32,6 +32,22 @@ def parse_max_value(s: str) -> float:
     return float(s)
 
 
+def parse_hex_color(s: str):
+    """解析十六进制颜色码，如 '0x00d7ff' → (0, 215, 255)"""
+    s = s.strip()
+    if s.startswith(("0x", "0X")):
+        s = s[2:]
+    if len(s) != 6:
+        raise argparse.ArgumentTypeError(f"expected 6 hex digits (e.g. 0x3399ff), got: {s}")
+    try:
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"invalid hex color: {e}")
+    return (r, g, b)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="winload",
@@ -84,6 +100,33 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="隐藏流量图形，只显示统计数据",
     )
+    parser.add_argument(
+        "-U", "--unicode",
+        action="store_true",
+        default=False,
+        help="使用 Unicode 方块字符绘图 (█▓░· 代替 #|..)",
+    )
+    parser.add_argument(
+        "-b", "--bar-style",
+        type=str,
+        choices=["fill", "color", "plain"],
+        default="fill",
+        help="状态栏样式: fill (默认，背景色铺满), color (背景色仅在文字上), plain (纯文字着色)",
+    )
+    parser.add_argument(
+        "--in-color",
+        type=parse_hex_color,
+        default=None,
+        metavar="HEX",
+        help="下行图形颜色, 十六进制 RGB (如 0x00d7ff)，默认: cyan",
+    )
+    parser.add_argument(
+        "--out-color",
+        type=parse_hex_color,
+        default=None,
+        metavar="HEX",
+        help="上行图形颜色, 十六进制 RGB (如 0xffaf00)，默认: gold",
+    )
     return parser.parse_args()
 
 
@@ -100,7 +143,9 @@ def main_loop(stdscr: "curses.window", args: argparse.Namespace) -> None:
             pass
 
     ui = UI(stdscr, collector, emoji=args.emoji, unit=args.unit,
-            fixed_max=fixed_max, no_graph=args.no_graph)
+            fixed_max=fixed_max, no_graph=args.no_graph,
+            unicode=args.unicode, bar_style=args.bar_style,
+            in_color=args.in_color, out_color=args.out_color)
 
     # 如果指定了默认设备，切换到对应索引
     if args.device:

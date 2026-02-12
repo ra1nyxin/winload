@@ -25,15 +25,17 @@ def render_graph(
     width: int,
     height: int,
     max_value: float = 0.0,
+    unicode: bool = False,
 ) -> List[str]:
     """
-    渲染 ASCII 柱状图。
+    渲染 ASCII/Unicode 柱状图。
 
     参数:
         history: 速率历史 deque（[0] 是最新值，越往后越旧）
         width:   图形宽度（字符列数）
         height:  图形高度（字符行数）
         max_value: 缩放上限，0 表示自动
+        unicode: 是否使用 Unicode 方块字符 (█▓░·)
 
     返回:
         包含 height 行的字符串列表，每行 width 个字符
@@ -78,11 +80,11 @@ def render_graph(
             else:
                 rest = value - lower_limit
                 if rest >= traffic_per_line:
-                    chars.append("#")
+                    chars.append("█" if unicode else "#")
                 elif rest >= traffic_per_line * 0.7:
-                    chars.append("|")
+                    chars.append("▓" if unicode else "|")
                 elif rest >= traffic_per_line * 0.3:
-                    chars.append(".")
+                    chars.append("░" if unicode else ".")
                 else:
                     chars.append(" ")
 

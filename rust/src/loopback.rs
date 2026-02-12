@@ -9,6 +9,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+/// Npcap 下载地址
+pub const NPCAP_URL: &str = "https://npcap.com/#download";
+
 /// 回环流量计数器 (线程安全，可在采集线程和主线程之间共享)
 #[derive(Clone)]
 pub struct LoopbackCounters {
@@ -61,7 +64,13 @@ pub mod platform {
     pub fn start_npcap(counters: LoopbackCounters) -> Result<(), String> {
         // 尝试查找 Npcap Loopback 适配器
         let devices = pcap::Device::list().map_err(|e| {
-            format!("Failed to list pcap devices (is Npcap installed?): {e}")
+            format!(
+                "Failed to list pcap devices: {e}\n\n\
+                 Npcap is not installed or not working.\n\
+                 Please install Npcap from: {NPCAP_URL}\n\
+                 (Enable 'Support loopback traffic capture' during installation)\n\n\
+                 Or try running without --npcap flag, or use --etw instead."
+            )
         })?;
 
         // Npcap 的回环设备通常包含 "Loopback" 或 "NPF_Loopback"
@@ -87,8 +96,10 @@ pub mod platform {
                     })
                     .collect();
                 format!(
-                    "Npcap loopback adapter not found.\n\
+                    "Npcap loopback adapter not found.\n\n\
                      Make sure Npcap is installed with 'Support loopback traffic' enabled.\n\
+                     Download Npcap: {NPCAP_URL}\n\n\
+                     Or try running without --npcap flag, or use --etw instead.\n\n\
                      Available devices:\n{}",
                     available.join("\n")
                 )
@@ -159,9 +170,12 @@ pub mod platform {
 
     #[cfg(not(feature = "npcap"))]
     pub fn start_npcap(_counters: LoopbackCounters) -> Result<(), String> {
-        Err("winload was compiled without Npcap support (feature 'npcap' disabled).\n\
-             Recompile with: cargo build --features npcap"
-            .to_string())
+        Err(format!(
+            "winload was compiled without Npcap support (feature 'npcap' disabled).\n\
+             Recompile with: cargo build --features npcap\n\n\
+             Or download a pre-built release that includes Npcap support.\n\
+             Npcap download: {NPCAP_URL}"
+        ))
     }
 
     /// 启动 ETW 回环捕获

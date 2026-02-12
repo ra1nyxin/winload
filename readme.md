@@ -5,6 +5,8 @@
 
 > A lightweight, real-time CLI tool for monitoring network bandwidth and traffic, inspired by Linux's nload.
 
+> **[📖 中文文档](readme.zh-cn.md)**
+
 [![Windows x64 | ARM64](https://img.shields.io/badge/Windows-x64_|_ARM64-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/VincentZyu233/winload/releases)
 [![Linux x64 | ARM64](https://img.shields.io/badge/Linux-x64_|_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/VincentZyu233/winload/releases)
 [![macOS x64 | ARM64](https://img.shields.io/badge/macOS-x64_|_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/VincentZyu233/winload/releases)
@@ -20,9 +22,9 @@ https://github.com/rolandriegel/nload
 - **Dual implementations**
 	- **Rust edition**: fast, memory-safe, single static binary—great for everyday monitoring.
 	- **Python edition**: easy to hack and extend for prototyping or integrations.
-- **Cross-platform vision**: Windows, Linux, and macOS.
+- **Cross-platform**: Windows, Linux, and macOS (x64 & ARM64).
 - **Real-time visualization**: live incoming/outgoing graphs and throughput stats.
-- **Minimal UI**: clean TUI that mirrors nload’s ergonomics.
+- **Minimal UI**: clean TUI that mirrors nload's ergonomics.
 
 ## 📟 Usage
 
@@ -30,6 +32,8 @@ https://github.com/rolandriegel/nload
 winload              # Monitor all active network interfaces
 winload -t 200       # Set refresh interval to 200ms
 winload -d "Wi-Fi"   # Start with a specific device
+winload -e           # Enable emoji decorations 🎉
+winload --npcap      # Capture 127.0.0.1 loopback traffic (Windows, requires Npcap)
 ```
 
 ### Options
@@ -40,12 +44,18 @@ winload -d "Wi-Fi"   # Start with a specific device
 | `-a`, `--average <SEC>` | Average calculation window in seconds | `300` |
 | `-d`, `--device <NAME>` | Default device name (partial match) | — |
 | `-e`, `--emoji` | Enable emoji decorations in TUI 🎉 | off |
+| `-U`, `--unicode` | Use Unicode block characters for graph (█▓░·) | off |
 | `-u`, `--unit <UNIT>` | Display unit: `bit` or `byte` | `bit` |
+| `-b`, `--bar-style <STYLE>` | Bar style: `fill`, `color`, or `plain` | `fill` |
+| `--in-color <HEX>` | Incoming graph color, hex RGB (e.g. `0x00d7ff`) | cyan |
+| `--out-color <HEX>` | Outgoing graph color, hex RGB (e.g. `0xffaf00`) | gold |
 | `-m`, `--max <VALUE>` | Fixed Y-axis max (e.g. `10M`, `1G`, `500K`) | auto |
 | `-n`, `--no-graph` | Hide graph, show stats only | off |
-| `--debug-info` | Print network interface debug info and exit *(Rust only)* | — |
-| `-h`, `--help` | Print help | — |
-| `-V`, `--version` | Print version *(Rust only)* | — |
+| `--npcap` | **[Windows Rust Only]** Capture loopback traffic via Npcap (recommended) | off |
+| `--etw` | **[Windows Rust Only]** Poll loopback counters via GetIfEntry (experimental) | off |
+| `--debug-info` | **[Rust Only]** Print network interface debug info and exit | — |
+| `-h`, `--help` | Print help (`--help --emoji` for emoji version!) | — |
+| `-V`, `--version` | **[Rust Only]** Print version | — |
 
 ### Keyboard Shortcuts
 
@@ -54,7 +64,24 @@ winload -d "Wi-Fi"   # Start with a specific device
 | `←` / `→` or `↑` / `↓` | Switch network device |
 | `q` / `Esc` | Quit |
 
-##  🖼️Previews
+## 🪟 Windows Loopback (127.0.0.1)
+
+Windows cannot report loopback traffic through standard APIs — this is a [functional deficiency in Windows' network stack](docs/win_loopback.md).
+
+winload provides two workarounds:
+
+| Flag | Method | Status |
+|------|--------|--------|
+| `--npcap` | Npcap WFP callout driver | ✅ **Recommended** — accurate, real packet capture |
+| `--etw` | `GetIfEntry` API polling | ⚠️ Experimental — counters are 0 on most Windows versions |
+
+**To use `--npcap`**: Install [Npcap](https://npcap.com/#download) and enable "Support loopback traffic capture" during installation.
+
+> 📖 For a deep dive into why Windows loopback is broken, see [docs/win_loopback.md](docs/win_loopback.md)
+
+On Linux and macOS, loopback traffic works out of the box — no extra flags needed.
+
+## 🖼️ Previews
 #### preview of python impl
 ![docs/preview-py.png](docs/preview-py.png)
 
