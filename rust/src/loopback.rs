@@ -166,14 +166,12 @@ pub mod platform {
 
     /// 启动 ETW 回环捕获
     ///
-    /// 实验性功能 — 使用 Windows GetIfEntry2 API 定时轮询 Loopback 接口统计。
+    /// 实验性功能 — 使用 Windows GetIfEntry API 定时轮询 Loopback 接口统计。
     /// 注意: 标准 API 对 loopback 的计数器可能始终为 0，
     /// 但某些 Windows 版本/补丁下可能有效。
     #[cfg(feature = "etw")]
     pub fn start_etw(counters: LoopbackCounters) -> Result<(), String> {
-        use windows_sys::Win32::NetworkManagement::IpHelper::*;
-
-        // 查找 loopback 接口的 InterfaceIndex
+        // 查找 loopback 接口的 dwIndex
         let loopback_idx = find_loopback_interface_index()?;
         eprintln!("[etw] Found loopback interface index: {loopback_idx}");
         eprintln!("[etw] Note: This is experimental. Windows may report 0 for loopback counters.");
@@ -188,53 +186,61 @@ pub mod platform {
         Ok(())
     }
 
+    /// 通过 GetIfTable 遍历所有接口，找到 dwType == 24 (SOFTWARE_LOOPBACK) 的索引
     #[cfg(feature = "etw")]
     fn find_loopback_interface_index() -> Result<u32, String> {
-        use windows_sys::Win32::NetworkManagement::IpHelper::*;
+        use windows_sys::Win32::NetworkManagement::IpHelper::{GetIfTable, MIB_IFTABLE};
 
         unsafe {
-            let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
-            let ret = GetIfTable2(&mut table);
-            if ret != 0 {
-                return Err(format!("GetIfTable2 failed with error code: {ret}"));
+            // 第一次调用获取所需 buffer 大小
+            let mut size: u32 = 0;
+            GetIfTable(std::ptr::null_mut(), &mut size, 0);
+
+            if size == 0 {
+                return Err("GetIfTable returned size 0".to_string());
             }
 
-            let num = (*table).NumEntries as usize;
-            let entries = std::slice::from_raw_parts((*table).Table.as_ptr(), num);
+            // 分配 buffer 并第二次调用
+            let mut buf: Vec<u8> = vec![0u8; size as usize];
+            let table_ptr = buf.as_mut_ptr() as *mut MIB_IFTABLE;
+            let ret = GetIfTable(table_ptr, &mut size, 0);
+            if ret != 0 {
+                return Err(format!("GetIfTable failed with error code: {ret}"));
+            }
 
-            let mut result = None;
+            let num = (*table_ptr).dwNumEntries as usize;
+            // table 字段是 [MIB_IFROW; 1]，实际是变长数组
+            let entries = std::slice::from_raw_parts((*table_ptr).table.as_ptr(), num);
+
             for entry in entries {
                 // IF_TYPE_SOFTWARE_LOOPBACK = 24
-                if entry.Type == 24 {
-                    result = Some(entry.InterfaceIndex);
-                    break;
+                if entry.dwType == 24 {
+                    return Ok(entry.dwIndex);
                 }
             }
 
-            FreeMibTable(table as *const _);
-
-            result.ok_or_else(|| "No loopback interface found via GetIfTable2".to_string())
+            Err("No loopback interface found via GetIfTable".to_string())
         }
     }
 
+    /// 定时轮询 loopback 接口的 dwInOctets / dwOutOctets
     #[cfg(feature = "etw")]
     fn etw_poll_loop(if_index: u32, counters: &LoopbackCounters) {
-        use windows_sys::Win32::NetworkManagement::IpHelper::*;
+        use windows_sys::Win32::NetworkManagement::IpHelper::{GetIfEntry, MIB_IFROW};
 
         let poll_interval = std::time::Duration::from_millis(200);
 
         loop {
             unsafe {
-                let mut row: MIB_IF_ROW2 = std::mem::zeroed();
-                row.InterfaceIndex = if_index;
+                let mut row: MIB_IFROW = std::mem::zeroed();
+                row.dwIndex = if_index;
 
-                let ret = GetIfEntry2(&mut row);
+                let ret = GetIfEntry(&mut row);
                 if ret == 0 {
-                    // 直接用系统报告的累计值覆盖计数器
-                    // InOctets / OutOctets 对于 loopback 在大多数 Windows 版本上为 0
-                    // 但我们还是尝试一下
-                    counters.bytes_recv.store(row.InOctets, Ordering::Relaxed);
-                    counters.bytes_sent.store(row.OutOctets, Ordering::Relaxed);
+                    // dwInOctets / dwOutOctets 是 u32 累计值
+                    // 对于 loopback，大多数 Windows 版本可能报告 0
+                    counters.bytes_recv.store(row.dwInOctets as u64, Ordering::Relaxed);
+                    counters.bytes_sent.store(row.dwOutOctets as u64, Ordering::Relaxed);
                 }
             }
 

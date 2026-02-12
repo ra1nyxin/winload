@@ -1,6 +1,6 @@
 [package]
 name = "winload"
-version = "0.1.4-alpha.1"
+version = "0.1.4-alpha.2"
 edition = "2021"
 description = "Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS"
 license = "MIT"
@@ -20,9 +20,7 @@ clap = { version = "4", features = ["derive"] }
 pcap = { version = "2", optional = true }
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
-    "Win32_Security",
     "Win32_NetworkManagement_IpHelper",
-    "Win32_Networking_WinSock",
 ], optional = true }
 
 [features]
