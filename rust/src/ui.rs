@@ -52,19 +52,25 @@ pub fn draw(frame: &mut Frame, app: &App) {
         { false }
     };
 
-    let header_height = if show_loopback_warning || show_etw_warning { 3 } else { 2 };
+    // 使用 --npcap 或 --etw 时，在 loopback 设备上显示捕获信息
+    let show_loopback_info = app.loopback_info.is_some()
+        && app.current_view()
+            .map(|v| v.info.name.to_lowercase().contains("loopback"))
+            .unwrap_or(false);
+
+    let header_height = if show_loopback_warning || show_etw_warning || show_loopback_info { 3 } else { 2 };
 
     // 主布局: 头部(2或3行) + 内容 + 帮助栏(1行)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(header_height), // Header + (warning) + separator
+            Constraint::Length(header_height), // Header + (warning/info) + separator
             Constraint::Min(6),               // Content (Incoming + Outgoing)
             Constraint::Length(1),             // Help bar
         ])
         .split(area);
 
-    draw_header(frame, chunks[0], app, show_loopback_warning, show_etw_warning);
+    draw_header(frame, chunks[0], app, show_loopback_warning, show_etw_warning, show_loopback_info);
     draw_panels(frame, chunks[1], app);
     draw_help(frame, chunks[2], app.emoji, app.bar_style);
 }
@@ -81,7 +87,7 @@ fn pad_to_width(text: &str, width: usize) -> String {
     }
 }
 
-fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: bool, show_etw_warning: bool) {
+fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: bool, show_etw_warning: bool, show_loopback_info: bool) {
     if let Some(view) = app.current_view() {
         let addr_str = if !view.info.addrs.is_empty() {
             format!(" [{}]", view.info.addrs[0])
@@ -89,21 +95,41 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             String::new()
         };
 
+        let is_loopback = view.info.name.to_lowercase().contains("loopback");
+
+        // 在 loopback 设备上追加捕获模式标记
+        let mode_tag = if is_loopback {
+            #[cfg(target_os = "windows")]
+            {
+                match app.loopback_mode {
+                    LoopbackMode::Npcap => " [npcap]",
+                    LoopbackMode::Etw => " [etw]",
+                    LoopbackMode::None => "",
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            { "" }
+        } else {
+            ""
+        };
+
         let header_text = if app.emoji {
             format!(
-                "🖧 Device {}{} ({}/{}) 📡:",
+                "🖧 Device {}{} ({}/{}){} 📡:",
                 view.info.name,
                 addr_str,
                 app.current_idx + 1,
                 app.views.len(),
+                mode_tag,
             )
         } else {
             format!(
-                "Device {}{} ({}/{}):",
+                "Device {}{} ({}/{}){}:",
                 view.info.name,
                 addr_str,
                 app.current_idx + 1,
                 app.views.len(),
+                mode_tag,
             )
         };
 
@@ -165,6 +191,23 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
                 etw_text.to_string()
             };
             lines.push(Line::from(Span::styled(etw_display, etw_style)));
+        }
+
+        if show_loopback_info {
+            if let Some(ref info) = app.loopback_info {
+                let info_text = format!(" {info}");
+                let info_style = match app.bar_style {
+                    BarStyle::Fill => Style::default().bg(Color::Green).fg(Color::Black),
+                    BarStyle::Color => Style::default().bg(Color::Green).fg(Color::Black),
+                    BarStyle::Plain => Style::default().fg(Color::Green),
+                };
+                let info_display = if app.bar_style == BarStyle::Fill {
+                    pad_to_width(&info_text, width)
+                } else {
+                    info_text
+                };
+                lines.push(Line::from(Span::styled(info_display, info_style)));
+            }
         }
 
         let text_height = lines.len() as u16;

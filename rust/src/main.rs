@@ -169,6 +169,7 @@ pub struct App {
     pub fixed_max: Option<f64>,
     pub no_graph: bool,
     pub loopback_mode: LoopbackMode,
+    pub loopback_info: Option<String>,
     loopback_counters: Option<LoopbackCounters>,
     collector: Collector,
 }
@@ -218,6 +219,7 @@ impl App {
             fixed_max: args.max,
             no_graph: args.no_graph,
             loopback_mode,
+            loopback_info: None,
             loopback_counters: None,
             collector,
         }
@@ -276,7 +278,8 @@ fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
             LoopbackMode::None => unreachable!(),
         };
         match result {
-            Ok(()) => {
+            Ok(info_msg) => {
+                app.loopback_info = Some(info_msg);
                 app.loopback_counters = Some(counters);
             }
             Err(e) => {

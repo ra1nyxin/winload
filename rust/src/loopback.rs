@@ -58,10 +58,10 @@ pub mod platform {
 
     /// 启动 Npcap 回环捕获线程
     ///
-    /// 返回 Ok(counters) 成功时，后台线程会持续累加计数器。
+    /// 返回 Ok(info_msg) 成功时，后台线程会持续累加计数器。
     /// 返回 Err(msg) 如果 Npcap 不可用或打开设备失败。
     #[cfg(feature = "npcap")]
-    pub fn start_npcap(counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_npcap(counters: LoopbackCounters) -> Result<String, String> {
         // 尝试查找 Npcap Loopback 适配器
         let devices = pcap::Device::list().map_err(|e| {
             format!(
@@ -106,7 +106,7 @@ pub mod platform {
             })?;
 
         let dev_name = loopback_dev.name.clone();
-        eprintln!("[npcap] Found loopback device: {dev_name}");
+        let info_msg = format!("[npcap] Found loopback device: {dev_name}");
 
         // 在后台线程中持续捕获
         thread::Builder::new()
@@ -118,7 +118,7 @@ pub mod platform {
             })
             .map_err(|e| format!("Failed to spawn npcap thread: {e}"))?;
 
-        Ok(())
+        Ok(info_msg)
     }
 
     #[cfg(feature = "npcap")]
@@ -169,7 +169,7 @@ pub mod platform {
     }
 
     #[cfg(not(feature = "npcap"))]
-    pub fn start_npcap(_counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_npcap(_counters: LoopbackCounters) -> Result<String, String> {
         Err(format!(
             "winload was compiled without Npcap support (feature 'npcap' disabled).\n\
              Recompile with: cargo build --features npcap\n\n\
@@ -184,11 +184,10 @@ pub mod platform {
     /// 注意: 标准 API 对 loopback 的计数器可能始终为 0，
     /// 但某些 Windows 版本/补丁下可能有效。
     #[cfg(feature = "etw")]
-    pub fn start_etw(counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_etw(counters: LoopbackCounters) -> Result<String, String> {
         // 查找 loopback 接口的 dwIndex
         let loopback_idx = find_loopback_interface_index()?;
-        eprintln!("[etw] Found loopback interface index: {loopback_idx}");
-        eprintln!("[etw] Note: This is experimental. Windows may report 0 for loopback counters.");
+        let info_msg = format!("[etw] Found loopback interface index: {loopback_idx} (experimental, counters may be 0)");
 
         thread::Builder::new()
             .name("etw-loopback".to_string())
@@ -197,7 +196,7 @@ pub mod platform {
             })
             .map_err(|e| format!("Failed to spawn ETW thread: {e}"))?;
 
-        Ok(())
+        Ok(info_msg)
     }
 
     /// 通过 GetIfTable 遍历所有接口，找到 dwType == 24 (SOFTWARE_LOOPBACK) 的索引
@@ -263,7 +262,7 @@ pub mod platform {
     }
 
     #[cfg(not(feature = "etw"))]
-    pub fn start_etw(_counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_etw(_counters: LoopbackCounters) -> Result<String, String> {
         Err("winload was compiled without ETW support (feature 'etw' disabled).\n\
              Recompile with: cargo build --features etw"
             .to_string())
@@ -278,13 +277,13 @@ pub mod platform {
 pub mod platform {
     use super::*;
 
-    pub fn start_npcap(_counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_npcap(_counters: LoopbackCounters) -> Result<String, String> {
         Err("--npcap is only supported on Windows. \
              On Linux/macOS, loopback traffic is natively available."
             .to_string())
     }
 
-    pub fn start_etw(_counters: LoopbackCounters) -> Result<(), String> {
+    pub fn start_etw(_counters: LoopbackCounters) -> Result<String, String> {
         Err("--etw is only supported on Windows. \
              On Linux/macOS, loopback traffic is natively available."
             .to_string())
