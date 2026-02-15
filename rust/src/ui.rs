@@ -222,7 +222,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
 
         // Add separator line as part of lines if not hidden
         if !app.hide_separator {
-            let sep_width = (area.width as usize).min(120);
+            let sep_width = area.width as usize;
             let separator = Line::from(Span::styled(
                 "=".repeat(sep_width),
                 Style::default().fg(Color::Cyan),

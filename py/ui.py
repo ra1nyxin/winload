@@ -189,7 +189,7 @@ class UI:
 
         # ── 分隔线 ──
         if not self.hide_separator:
-            sep = "=" * min(max_x - 1, 120)
+            sep = "=" * (max_x - 1)
             self._safe_addstr(row, 0, sep, curses.color_pair(self.COLOR_SEPARATOR))
             row += 1
 
