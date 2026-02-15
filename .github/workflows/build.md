@@ -18,7 +18,7 @@ The CI/CD pipeline is driven entirely by **commit message keywords**. Push to `m
 
 > **Note:** `publish from release` fetches binaries from an existing Release without rebuilding. `build publish` does the full pipeline.
 
-> **Note:** Pull Requests always trigger a build (no release or publish).
+> **Note:** Pull Requests always trigger a build (no release or publish). Commit message keywords are **ignored** for PRs — the workflow unconditionally sets `should_build=true`, `should_release=false`, `should_publish=false` and skips keyword parsing entirely.
 
 ## 🚀 Usage Examples
 
