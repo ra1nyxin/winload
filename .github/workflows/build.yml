@@ -177,6 +177,11 @@ jobs:
           echo "LIB=$libDir;$env:LIB" >> $env:GITHUB_ENV
           Write-Host "✅ Npcap SDK ready"
 
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          cargo install cargo-deb cargo-generate-rpm
+
       - name: Build release binary
         shell: bash
         working-directory: rust
@@ -192,6 +197,37 @@ jobs:
             file target/${{ matrix.target }}/release/${{ matrix.binary }}
             ldd target/${{ matrix.target }}/release/${{ matrix.binary }} 2>&1 || echo "✅ Statically linked (no dynamic dependencies)"
           fi
+
+      # Linux targets: 额外构建 DEB + RPM 包
+      - name: Build DEB & RPM packages
+        if: runner.os == 'Linux' && !contains(matrix.target, 'musl') == false || contains(matrix.target, 'linux')
+        shell: bash
+        working-directory: rust
+        run: |
+          if [[ "${{ matrix.target }}" != *linux* ]]; then
+            echo "⏭️ Skipping: not a Linux target"
+            exit 0
+          fi
+          echo "📦 Building DEB package for ${{ matrix.target }}..."
+          cargo deb --target ${{ matrix.target }} --no-build
+          echo "📦 Building RPM package for ${{ matrix.target }}..."
+          cargo generate-rpm --target ${{ matrix.target }}
+          echo "✅ Packages built:"
+          find target -name '*.deb' -o -name '*.rpm' | head -20
+
+      - name: Upload DEB artifact
+        if: contains(matrix.target, 'linux')
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.name }}
+          path: rust/target/**/debian/*.deb
+
+      - name: Upload RPM artifact
+        if: contains(matrix.target, 'linux')
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.name }}
+          path: rust/target/**/generate-rpm/*.rpm
 
       - name: Prepare artifact
         shell: bash
@@ -257,12 +293,31 @@ jobs:
       - name: Generate release notes from commits
         run: |
           VERSION="${{ needs.check.outputs.version }}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+          PKG_VER="${VERSION#v}"
+          DEB_VER=$(echo "$PKG_VER" | sed 's/-/~/')
           
           # 查找上一个 release tag（排除当前版本）
           PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${VERSION}$" | head -1)
           
           {
             echo "## 📦 winload ${VERSION}"
+            echo ""
+            echo "### ⬇️ Downloads"
+            echo ""
+            echo "| Arch | Windows | Linux | macOS |"
+            echo "|------|---------|-------|-------|"
+            echo "| **x86_64** | [exe](${BASE_URL}/winload-windows-x86_64-${VERSION}.exe) | [binary](${BASE_URL}/winload-linux-x86_64-${VERSION}) · [deb](${BASE_URL}/winload_${DEB_VER}-1_amd64.deb) · [rpm](${BASE_URL}/winload-${PKG_VER}-1.x86_64.rpm) | [binary](${BASE_URL}/winload-macos-x86_64-${VERSION}) |"
+            echo "| **ARM64** | [exe](${BASE_URL}/winload-windows-aarch64-${VERSION}.exe) | [binary](${BASE_URL}/winload-linux-aarch64-${VERSION}) · [deb](${BASE_URL}/winload_${DEB_VER}-1_arm64.deb) · [rpm](${BASE_URL}/winload-${PKG_VER}-1.aarch64.rpm) | [binary](${BASE_URL}/winload-macos-aarch64-${VERSION}) |"
+            echo ""
+            echo "**Quick install (Debian/Ubuntu/Fedora and derivatives):**"
+            echo '```bash'
+            echo "curl -fsSL https://raw.githubusercontent.com/${REPO}/main/docs/install_scripts/install.sh | bash"
+            echo '```'
+            echo "> 📄 [View install script source](https://github.com/${REPO}/blob/main/docs/install_scripts/install.sh)"
+            echo ""
+            echo "---"
             echo ""
             echo "### What's Changed"
             echo ""
@@ -283,13 +338,13 @@ jobs:
             echo ""
             echo "### 📊 Build Info"
             echo "- **Build date**: $(date -u '+%Y-%m-%d %H:%M UTC')"
-            echo "- **Commit**: [\`${GITHUB_SHA::7}\`](https://github.com/${{ github.repository }}/commit/${GITHUB_SHA})"
+            echo "- **Commit**: [\`${GITHUB_SHA::7}\`](https://github.com/${REPO}/commit/${GITHUB_SHA})"
             echo ""
             
             if [ -n "$PREV_TAG" ]; then
-              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}"
+              echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${VERSION}"
             else
-              echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/${VERSION}"
+              echo "**Full Changelog**: https://github.com/${REPO}/commits/${VERSION}"
             fi
           } > release_notes.md
           
@@ -301,11 +356,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ needs.check.outputs.version }}"
+          # 收集所有要上传的文件（二进制 + DEB + RPM）
+          shopt -s globstar nullglob
+          FILES=(winload-*-${VERSION}* *.deb *.rpm)
+          echo "📤 Uploading ${#FILES[@]} files:"
+          printf '  - %s\n' "${FILES[@]}"
           gh release create "$VERSION" \
             --title "winload ${VERSION}" \
             --notes-file release_notes.md \
             --latest \
-            winload-*-${VERSION}*
+            "${FILES[@]}"
 
   # ── 更新 Scoop Bucket ─────────────────────────────────
   # 触发方式:
@@ -411,57 +471,6 @@ jobs:
           git push
 
           echo "✅ Scoop bucket updated!"
-
-  # ── 构建并上传 DEB 包（x86_64 + ARM64）──────────────────
-  publish-deb:
-    name: Build & Upload DEB Packages
-    needs: [check, release]
-    if: always() && needs.check.outputs.should_publish == 'true' && (needs.release.result == 'success' || needs.release.result == 'skipped')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-gnu
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
-          cargo install cargo-deb
-
-      - name: Build x86_64 binary (musl)
-        working-directory: rust
-        run: cargo build --release --target x86_64-unknown-linux-musl
-
-      - name: Build ARM64 binary (cross-compile)
-        working-directory: rust
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target aarch64-unknown-linux-gnu
-
-      - name: Build DEB packages (both architectures)
-        working-directory: rust
-        run: |
-          cargo deb --target x86_64-unknown-linux-musl --no-build
-          cargo deb --target aarch64-unknown-linux-gnu --no-build
-          echo "📦 DEB packages built:"
-          ls -lh target/x86_64-unknown-linux-musl/debian/*.deb
-          ls -lh target/aarch64-unknown-linux-gnu/debian/*.deb
-
-      - name: Upload DEBs to GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ needs.check.outputs.version }}"
-          for deb in rust/target/*/debian/*.deb; do
-            echo "📤 Uploading: $deb"
-            gh release upload "$VERSION" "$deb" --clobber
-          done
-          echo "✅ DEB packages uploaded to release ${VERSION}!"
 
   # ── 更新 AUR 包（x86_64 + aarch64）────────────────────
   publish-aur:
