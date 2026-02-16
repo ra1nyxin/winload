@@ -17,12 +17,18 @@ use crate::{App, BarStyle, Unit};
 #[cfg(target_os = "windows")]
 use crate::loopback::LoopbackMode;
 
+/// If `no_color` is true, return `Style::default()` (no colors/modifiers);
+/// otherwise return the given style unchanged.
+fn maybe_strip(style: Style, no_color: bool) -> Style {
+    if no_color { Style::default() } else { style }
+}
+
 /// 主绘制入口
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
     if area.height < 10 || area.width < 40 {
-        draw_too_small(frame, area, app.emoji);
+        draw_too_small(frame, area, app.emoji, app.no_color);
         return;
     }
 
@@ -82,7 +88,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     draw_header(frame, chunks[0], app, show_loopback_warning, show_etw_warning, show_loopback_info);
     draw_panels(frame, chunks[1], app);
-    draw_help(frame, chunks[2], app.emoji, app.bar_style);
+    draw_help(frame, chunks[2], app.emoji, app.bar_style, app.no_color);
 }
 
 // ─── Header ────────────────────────────────────────────────
@@ -145,7 +151,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
 
         let width = area.width as usize;
 
-        let header_style = match app.bar_style {
+        let header_style = maybe_strip(match app.bar_style {
             BarStyle::Fill => Style::default()
                 .bg(Color::White)
                 .fg(Color::Black)
@@ -157,7 +163,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             BarStyle::Plain => Style::default()
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
-        };
+        }, app.no_color);
 
         let header_display = if app.bar_style == BarStyle::Fill {
             pad_to_width(&header_text, width)
@@ -171,11 +177,11 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
         
         if show_loopback_warning {
             let warn_text = " \u{26a0} Loopback: use --npcap (npcap.com) or --etw";
-            let warn_style = match app.bar_style {
+            let warn_style = maybe_strip(match app.bar_style {
                 BarStyle::Fill => Style::default().bg(Color::Red).fg(Color::White),
                 BarStyle::Color => Style::default().bg(Color::Red).fg(Color::White),
                 BarStyle::Plain => Style::default().fg(Color::Yellow),
-            };
+            }, app.no_color);
             let warn_display = if app.bar_style == BarStyle::Fill {
                 pad_to_width(warn_text, width)
             } else {
@@ -190,11 +196,11 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             } else {
                 " \u{26a0} ETW: loopback counters are 0 on most Windows, try --npcap (npcap.com)"
             };
-            let etw_style = match app.bar_style {
+            let etw_style = maybe_strip(match app.bar_style {
                 BarStyle::Fill => Style::default().bg(Color::Yellow).fg(Color::Black),
                 BarStyle::Color => Style::default().bg(Color::Yellow).fg(Color::Black),
                 BarStyle::Plain => Style::default().fg(Color::Yellow),
-            };
+            }, app.no_color);
             let etw_display = if app.bar_style == BarStyle::Fill {
                 pad_to_width(etw_text, width)
             } else {
@@ -206,11 +212,11 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
         if show_loopback_info {
             if let Some(ref info) = app.loopback_info {
                 let info_text = format!(" {info}");
-                let info_style = match app.bar_style {
+                let info_style = maybe_strip(match app.bar_style {
                     BarStyle::Fill => Style::default().bg(Color::Green).fg(Color::Black),
                     BarStyle::Color => Style::default().bg(Color::Green).fg(Color::Black),
                     BarStyle::Plain => Style::default().fg(Color::Green),
-                };
+                }, app.no_color);
                 let info_display = if app.bar_style == BarStyle::Fill {
                     pad_to_width(&info_text, width)
                 } else {
@@ -225,7 +231,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             let sep_width = area.width as usize;
             let separator = Line::from(Span::styled(
                 "=".repeat(sep_width),
-                Style::default().fg(Color::Cyan),
+                maybe_strip(Style::default().fg(Color::Cyan), app.no_color),
             ));
             lines.push(separator);
         }
@@ -268,6 +274,7 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             app.in_color,
             app.fixed_max,
             app.no_graph,
+            app.no_color,
         );
         draw_traffic_panel(
             frame,
@@ -282,6 +289,7 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
             app.out_color,
             app.fixed_max,
             app.no_graph,
+            app.no_color,
         );
     }
 }
@@ -299,6 +307,7 @@ fn draw_traffic_panel(
     graph_color: Color,
     fixed_max: Option<f64>,
     no_graph: bool,
+    no_color: bool,
 ) {
     if area.height < 2 || area.width < 20 {
         return;
@@ -321,7 +330,7 @@ fn draw_traffic_panel(
     let label_text = format!("{label} ({scale_label}):");
     let width = area.width as usize;
 
-    let label_style = match bar_style {
+    let label_style = maybe_strip(match bar_style {
         BarStyle::Fill => Style::default()
             .bg(graph_color)
             .fg(Color::Black)
@@ -333,7 +342,7 @@ fn draw_traffic_panel(
         BarStyle::Plain => Style::default()
             .fg(graph_color)
             .add_modifier(Modifier::BOLD),
-    };
+    }, no_color);
     let label_display = if bar_style == BarStyle::Fill {
         pad_to_width(&label_text, width)
     } else {
@@ -344,7 +353,7 @@ fn draw_traffic_panel(
 
     if no_graph {
         // ── 无图模式: 统计信息占满宽度 ──
-        draw_stats(frame, panel_chunks[1], stats, emoji, unit);
+        draw_stats(frame, panel_chunks[1], stats, emoji, unit, no_color);
     } else {
         // ── 内容区: 左侧图形 + 右侧统计 ──
         let stat_width: u16 = if emoji { 28 } else { 24 };
@@ -353,14 +362,14 @@ fn draw_traffic_panel(
             .constraints([Constraint::Min(10), Constraint::Length(stat_width)])
             .split(panel_chunks[1]);
 
-        draw_graph(frame, content_chunks[0], history, scale_max, unicode, graph_color);
-        draw_stats(frame, content_chunks[1], stats, emoji, unit);
+        draw_graph(frame, content_chunks[0], history, scale_max, unicode, graph_color, no_color);
+        draw_stats(frame, content_chunks[1], stats, emoji, unit, no_color);
     }
 }
 
 // ─── Graph ─────────────────────────────────────────────────
 
-fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value: f64, unicode: bool, graph_color: Color) {
+fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value: f64, unicode: bool, graph_color: Color, no_color: bool) {
     let width = area.width as usize;
     let height = area.height as usize;
 
@@ -376,14 +385,14 @@ fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value:
                 .chars()
                 .map(|ch| match ch {
                     // Unicode block chars
-                    '█' => Span::styled("█", Style::default().fg(graph_color)),
-                    '▓' => Span::styled("▓", Style::default().fg(graph_color)),
-                    '░' => Span::styled("░", Style::default().fg(dim_color)),
-                    '·' => Span::styled("·", Style::default().fg(dim_color)),
+                    '█' => Span::styled("█", maybe_strip(Style::default().fg(graph_color), no_color)),
+                    '▓' => Span::styled("▓", maybe_strip(Style::default().fg(graph_color), no_color)),
+                    '░' => Span::styled("░", maybe_strip(Style::default().fg(dim_color), no_color)),
+                    '·' => Span::styled("·", maybe_strip(Style::default().fg(dim_color), no_color)),
                     // ASCII chars
-                    '#' => Span::styled("#", Style::default().fg(graph_color)),
-                    '|' => Span::styled("|", Style::default().fg(graph_color)),
-                    '.' => Span::styled(".", Style::default().fg(dim_color)),
+                    '#' => Span::styled("#", maybe_strip(Style::default().fg(graph_color), no_color)),
+                    '|' => Span::styled("|", maybe_strip(Style::default().fg(graph_color), no_color)),
+                    '.' => Span::styled(".", maybe_strip(Style::default().fg(dim_color), no_color)),
                     _ => Span::raw(" "),
                 })
                 .collect();
@@ -396,8 +405,8 @@ fn draw_graph(frame: &mut Frame, area: Rect, history: &VecDeque<f64>, max_value:
 
 // ─── Stats ─────────────────────────────────────────────────
 
-fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool, unit: Unit) {
-    let stat_lines = format_stats_lines(stats, emoji, unit);
+fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool, unit: Unit, no_color: bool) {
+    let stat_lines = format_stats_lines(stats, emoji, unit, no_color);
     let stat_count = stat_lines.len() as u16;
 
     // 底部对齐
@@ -412,11 +421,11 @@ fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool, 
     }
 }
 
-fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit) -> Vec<Line<'static>> {
-    let label_style = Style::default()
+fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit, no_color: bool) -> Vec<Line<'static>> {
+    let label_style = maybe_strip(Style::default()
         .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-    let value_style = Style::default().fg(Color::White);
+        .add_modifier(Modifier::BOLD), no_color);
+    let value_style = maybe_strip(Style::default().fg(Color::White), no_color);
 
     if emoji {
         vec![
@@ -469,7 +478,7 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit) -> Vec<Line<'s
 
 // ─── Help / Error ──────────────────────────────────────────
 
-fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
+fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle, no_color: bool) {
     let help_text = if emoji {
         #[cfg(target_os = "windows")]
         { " ⬅️/➡️ Switch Device | 🚪 q Quit | 💡 Loopback: --npcap" }
@@ -484,7 +493,7 @@ fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
 
     let width = area.width as usize;
 
-    let help_style = match bar_style {
+    let help_style = maybe_strip(match bar_style {
         BarStyle::Fill => Style::default()
             .bg(Color::White)
             .fg(Color::Black),
@@ -493,7 +502,7 @@ fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
             .fg(Color::Black),
         BarStyle::Plain => Style::default()
             .fg(Color::Yellow),
-    };
+    }, no_color);
     let help_display = if bar_style == BarStyle::Fill {
         pad_to_width(help_text, width)
     } else {
@@ -503,7 +512,7 @@ fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle) {
     frame.render_widget(Paragraph::new(vec![help]), area);
 }
 
-fn draw_too_small(frame: &mut Frame, area: Rect, emoji: bool) {
+fn draw_too_small(frame: &mut Frame, area: Rect, emoji: bool, no_color: bool) {
     let msg = if emoji {
         "😭 Terminal too small! 📌"
     } else {
@@ -513,9 +522,9 @@ fn draw_too_small(frame: &mut Frame, area: Rect, emoji: bool) {
     let y = area.height / 2;
     let line = Line::from(Span::styled(
         msg,
-        Style::default()
+        maybe_strip(Style::default()
             .fg(Color::Red)
-            .add_modifier(Modifier::BOLD),
+            .add_modifier(Modifier::BOLD), no_color),
     ));
     frame.render_widget(
         Paragraph::new(vec![line]),

@@ -133,6 +133,12 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="隐藏分隔线（头部下方的一行等于号）",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        default=False,
+        help="禁用所有 TUI 颜色（单色模式），运行时按 c 可切换",
+    )
     return parser.parse_args()
 
 
@@ -152,7 +158,8 @@ def main_loop(stdscr: "curses.window", args: argparse.Namespace) -> None:
             fixed_max=fixed_max, no_graph=args.no_graph,
             unicode=args.unicode, bar_style=args.bar_style,
             in_color=args.in_color, out_color=args.out_color,
-            hide_separator=args.hide_separator)
+            hide_separator=args.hide_separator,
+            no_color=args.no_color)
 
     # 如果指定了默认设备，切换到对应索引
     if args.device:

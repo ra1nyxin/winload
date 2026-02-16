@@ -46,7 +46,7 @@ class UI:
                  fixed_max: Optional[float] = None, no_graph: bool = False,
                  unicode: bool = False, bar_style: str = "fill",
                  in_color: Optional[tuple] = None, out_color: Optional[tuple] = None,
-                 hide_separator: bool = False):
+                 hide_separator: bool = False, no_color: bool = False):
         self.stdscr = stdscr
         self.collector = collector
         self.current_device_idx = 0
@@ -60,6 +60,7 @@ class UI:
         self.in_color_rgb = in_color
         self.out_color_rgb = out_color
         self.hide_separator = hide_separator
+        self.no_color = no_color
 
         # 初始化颜色
         curses.start_color()
@@ -108,6 +109,10 @@ class UI:
             pass
 
         self._init_views()
+
+    def _color(self, attr: int) -> int:
+        """If no_color mode is active, strip all color/style attributes and return 0."""
+        return 0 if self.no_color else attr
 
     def _init_views(self) -> None:
         """根据 collector 的设备列表创建视图"""
@@ -172,7 +177,7 @@ class UI:
                 f"Device {view.name}{addr_str} "
                 f"({device_idx + 1}/{len(self.views)}):"
             )
-        header_attr = self._get_bar_attr(self.COLOR_HEADER, bold=True)
+        header_attr = self._color(self._get_bar_attr(self.COLOR_HEADER, bold=True))
         if self.bar_style == "fill":
             header = header.ljust(max_x - 1)
         self._safe_addstr(row, 0, header, header_attr)
@@ -181,7 +186,7 @@ class UI:
         # ── Loopback 警告（仅 Windows）──
         if self._is_loopback_on_windows(view):
             warning = " \u26a0 Loopback traffic stats are not available on Windows"
-            warn_attr = self._get_bar_attr(self.COLOR_HELP)
+            warn_attr = self._color(self._get_bar_attr(self.COLOR_HELP))
             if self.bar_style == "fill":
                 warning = warning.ljust(max_x - 1)
             self._safe_addstr(row, 0, warning, warn_attr)
@@ -190,7 +195,7 @@ class UI:
         # ── 分隔线 ──
         if not self.hide_separator:
             sep = "=" * (max_x - 1)
-            self._safe_addstr(row, 0, sep, curses.color_pair(self.COLOR_SEPARATOR))
+            self._safe_addstr(row, 0, sep, self._color(curses.color_pair(self.COLOR_SEPARATOR)))
             row += 1
 
         # 可用于面板的高度
@@ -233,7 +238,7 @@ class UI:
             help_text = " ⬅️/➡️ Switch Device | 🚪 q Quit"
         else:
             help_text = " ←/→ Switch Device | q Quit"
-        help_attr = self._get_bar_attr(self.COLOR_HELP)
+        help_attr = self._color(self._get_bar_attr(self.COLOR_HELP))
         if self.bar_style == "fill":
             help_text = help_text.ljust(max_x - 1)
         self._safe_addstr(
@@ -273,7 +278,7 @@ class UI:
         # 标签行
         scale_label = get_graph_scale_label_unit(scale_max, self.unit)
         label_text = f"{label} ({scale_label}):"
-        label_attr = self._get_bar_attr(label_color, bold=True)
+        label_attr = self._color(self._get_bar_attr(label_color, bold=True))
         if self.bar_style == "fill":
             label_text = label_text.ljust(max_x - 1)
         self._safe_addstr(
@@ -299,14 +304,14 @@ class UI:
                     val_part = parts[1]
                     self._safe_addstr(
                         r, stat_col, lbl_part,
-                        curses.color_pair(self.COLOR_STAT_LABEL) | curses.A_BOLD,
+                        self._color(curses.color_pair(self.COLOR_STAT_LABEL) | curses.A_BOLD),
                     )
                     self._safe_addstr(
                         r, stat_col + len(lbl_part), val_part,
-                        curses.color_pair(self.COLOR_STAT_VALUE),
+                        self._color(curses.color_pair(self.COLOR_STAT_VALUE)),
                     )
                 else:
-                    self._safe_addstr(r, stat_col, s, curses.color_pair(self.COLOR_STAT_VALUE))
+                    self._safe_addstr(r, stat_col, s, self._color(curses.color_pair(self.COLOR_STAT_VALUE)))
             return
 
         # 图形区域尺寸
@@ -334,9 +339,9 @@ class UI:
             row = start_row + 1 + i
             for col_idx, ch in enumerate(line):
                 if ch in full_chars:
-                    color = curses.color_pair(graph_color)
+                    color = self._color(curses.color_pair(graph_color))
                 elif ch in dim_chars:
-                    color = curses.color_pair(self.COLOR_GRAPH_LOW) | curses.A_DIM
+                    color = self._color(curses.color_pair(self.COLOR_GRAPH_LOW) | curses.A_DIM)
                 else:
                     continue  # 空格不画
                 self._safe_addch(row, col_idx, ch, color)
@@ -355,14 +360,14 @@ class UI:
                 val_part = parts[1]
                 self._safe_addstr(
                     r, stat_col, lbl_part,
-                    curses.color_pair(self.COLOR_STAT_LABEL) | curses.A_BOLD,
+                    self._color(curses.color_pair(self.COLOR_STAT_LABEL) | curses.A_BOLD),
                 )
                 self._safe_addstr(
                     r, stat_col + len(lbl_part), val_part,
-                    curses.color_pair(self.COLOR_STAT_VALUE),
+                    self._color(curses.color_pair(self.COLOR_STAT_VALUE)),
                 )
             else:
-                self._safe_addstr(r, stat_col, s, curses.color_pair(self.COLOR_STAT_VALUE))
+                self._safe_addstr(r, stat_col, s, self._color(curses.color_pair(self.COLOR_STAT_VALUE)))
 
     def _get_bar_attr(self, color_pair_id: int, bold: bool = False) -> int:
         """根据 bar_style 返回对应的 curses 属性"""
@@ -401,7 +406,7 @@ class UI:
         x = max(0, (max_x - len(msg)) // 2)
         self._safe_addstr(
             y, x, msg,
-            curses.color_pair(self.COLOR_ERROR) | curses.A_BOLD,
+            self._color(curses.color_pair(self.COLOR_ERROR) | curses.A_BOLD),
         )
 
     def _safe_addstr(self, y: int, x: int, text: str, attr: int = 0) -> None:
@@ -444,6 +449,8 @@ class UI:
             return False
         elif key == ord("="):
             self.hide_separator = not self.hide_separator
+        elif key in (ord("c"), ord("C")):
+            self.no_color = not self.no_color
         elif key in (curses.KEY_RIGHT, curses.KEY_DOWN, ord("\t"),
                      curses.KEY_NPAGE, 10):  # 10 = Enter
             self.next_device()

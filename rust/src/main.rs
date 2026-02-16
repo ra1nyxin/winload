@@ -137,6 +137,10 @@ struct Args {
     #[arg(long = "hide-separator")]
     hide_separator: bool,
 
+    /// Disable all TUI colors (monochrome mode). Press 'c' to toggle at runtime
+    #[arg(long = "no-color")]
+    no_color: bool,
+
     /// [Windows only] Use Npcap to capture loopback traffic (recommended)
     /// Requires Npcap installed: https://npcap.com/#download
     #[arg(long = "npcap", conflicts_with = "etw")]
@@ -173,6 +177,7 @@ pub struct App {
     pub fixed_max: Option<f64>,
     pub no_graph: bool,
     pub hide_separator: bool,
+    pub no_color: bool,
     pub loopback_mode: LoopbackMode,
     pub loopback_info: Option<String>,
     loopback_counters: Option<LoopbackCounters>,
@@ -224,6 +229,7 @@ impl App {
             fixed_max: args.max,
             no_graph: args.no_graph,
             hide_separator: args.hide_separator,
+            no_color: args.no_color,
             loopback_mode,
             loopback_info: None,
             loopback_counters: None,
@@ -326,6 +332,9 @@ fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
                         KeyCode::Char('=') => {
                             app.hide_separator = !app.hide_separator;
                         }
+                        KeyCode::Char('c') => {
+                            app.no_color = !app.no_color;
+                        }
                         KeyCode::Right | KeyCode::Down | KeyCode::Tab | KeyCode::Enter => {
                             app.next_device();
                         }
@@ -376,6 +385,7 @@ nload-like TUI tool for Windows/Linux/macOS
       --out-color <HEX>      ⬆️  Outgoing graph color, hex RGB (e.g. 0xffaf00)
   -m, --max <VALUE>          📏 Fixed graph Y-axis max (e.g. 100M, 1G). Default: auto
   -n, --no-graph             📋 Hide traffic graphs, show only statistics
+      --no-color               🎨 Disable all TUI colors (monochrome mode)
 
 🪟 Windows Loopback:
       --npcap                🟢 Use Npcap to capture loopback traffic (recommended)
@@ -389,6 +399,7 @@ nload-like TUI tool for Windows/Linux/macOS
 
 ⌨️  Keybindings:
   ⬅️/➡️ or ⬆️/⬇️              Switch network device
+  c                         🎨 Toggle color on/off
   q / Esc                   🚪 Quit
 
 💡 Examples:
