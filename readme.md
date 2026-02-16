@@ -26,7 +26,51 @@ https://github.com/rolandriegel/nload
 - **Real-time visualization**: live incoming/outgoing graphs and throughput stats.
 - **Minimal UI**: clean TUI that mirrors nload's ergonomics.
 
-## 📟 Usage
+## 📥 Installation
+
+### Windows (Scoop)
+```powershell
+scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
+scoop install winload
+```
+
+### Linux (one-liner)
+> Supports Debian/Ubuntu and derivatives — Linux Mint, Pop!_OS, Deepin, UOS, etc. (apt)
+> Supports Fedora/RHEL and derivatives — Rocky Linux, AlmaLinux, CentOS Stream, etc. (dnf)
+```bash
+curl -fsSL https://raw.githubusercontent.com/VincentZyuApps/winload/main/docs/install_scripts/install.sh | bash
+```
+
+<details>
+<summary>Manual install / Other platforms</summary>
+
+**DEB (Debian/Ubuntu):**
+```bash
+# Download the latest .deb from GitHub Releases
+sudo dpkg -i winload_*_amd64.deb
+```
+
+**RPM (Fedora/RHEL):**
+```bash
+sudo dnf install ./winload-*-1.x86_64.rpm
+```
+
+**macOS (Homebrew) — coming soon:**
+```bash
+brew tap VincentZyu233/tap
+brew install winload
+```
+
+**Arch Linux (AUR):**
+```bash
+paru -S winload-bin
+```
+
+**Or download binaries directly from [GitHub Releases](https://github.com/VincentZyuApps/winload/releases).**
+
+</details>
+
+## ⌨️ Usage
 
 ```bash
 winload              # Monitor all active network interfaces
@@ -52,6 +96,7 @@ winload --npcap      # Capture 127.0.0.1 loopback traffic (Windows, requires Npc
 | `-m`, `--max <VALUE>` | Fixed Y-axis max (e.g. `10M`, `1G`, `500K`) | auto |
 | `-n`, `--no-graph` | Hide graph, show stats only | off |
 | `--hide-separator` | Hide the separator line (row of equals signs) | off |
+| `--no-color` | Disable all TUI colors (monochrome mode) | off |
 | `--npcap` | **[Windows Rust Only]** Capture loopback traffic via Npcap (recommended) | off |
 | `--etw` | **[Windows Rust Only]** Poll loopback counters via GetIfEntry (experimental) | off |
 | `--debug-info` | **[Rust Only]** Print network interface debug info and exit | — |
@@ -64,6 +109,7 @@ winload --npcap      # Capture 127.0.0.1 loopback traffic (Windows, requires Npc
 |-----|--------|
 | `←` / `→` or `↑` / `↓` | Switch network device |
 | `=` | Toggle separator line visibility |
+| `c` | Toggle color on/off |
 | `q` / `Esc` | Quit |
 
 ## 🪟 Windows Loopback (127.0.0.1)

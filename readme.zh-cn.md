@@ -26,7 +26,51 @@ https://github.com/rolandriegel/nload
 - **实时可视化**: 实时上行/下行流量图和吞吐量统计。
 - **简洁界面**: 干净的 TUI，沿袭 nload 的人体工程学设计。
 
-## 📟 用法
+## 📥 安装
+
+### Windows (Scoop)
+```powershell
+scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
+scoop install winload
+```
+
+### Linux (一键安装脚本)
+> 支持 Debian/Ubuntu 及其下游 —— Linux Mint、Pop!_OS、Deepin、统信 UOS 等 (apt)
+> 支持 Fedora/RHEL 及其下游 —— Rocky Linux、AlmaLinux、CentOS Stream 等 (dnf)
+```bash
+curl -fsSL https://raw.githubusercontent.com/VincentZyuApps/winload/main/docs/install_scripts/install.sh | bash
+```
+
+<details>
+<summary>手动安装 / 其他平台</summary>
+
+**DEB (Debian/Ubuntu):**
+```bash
+# 从 GitHub Releases 下载最新 .deb 包
+sudo dpkg -i winload_*_amd64.deb
+```
+
+**RPM (Fedora/RHEL):**
+```bash
+sudo dnf install ./winload-*-1.x86_64.rpm
+```
+
+**macOS (Homebrew) — 即将支持：**
+```bash
+brew tap VincentZyu233/tap
+brew install winload
+```
+
+**Arch Linux (AUR):**
+```bash
+paru -S winload-bin
+```
+
+**或者直接从 [GitHub Releases](https://github.com/VincentZyuApps/winload/releases) 下载二进制文件。**
+
+</details>
+
+## ⌨️ 用法
 
 ```bash
 winload              # 监控所有活跃网络接口
@@ -52,6 +96,7 @@ winload --npcap      # 捕获 127.0.0.1 回环流量 (Windows，需安装 Npcap)
 | `-m`, `--max <VALUE>` | 固定 Y 轴最大值（如 `10M`、`1G`、`500K`） | 自动 |
 | `-n`, `--no-graph` | 隐藏图形，仅显示统计信息 | 关闭 |
 | `--hide-separator` | 隐藏分隔线（等于号一行） | 关闭 |
+| `--no-color` | 禁用所有 TUI 颜色（单色模式） | 关闭 |
 | `--npcap` | **[Windows Only]** 通过 Npcap 捕获回环流量（推荐） | 关闭 |
 | `--etw` | **[Windows Only]** 通过 GetIfEntry API 轮询回环计数器（实验性） | 关闭 |
 | `--debug-info` | **[Rust Only]** 打印网络接口调试信息后退出 | — |
@@ -64,6 +109,7 @@ winload --npcap      # 捕获 127.0.0.1 回环流量 (Windows，需安装 Npcap)
 |------|------|
 | `←` / `→` 或 `↑` / `↓` | 切换网络设备 |
 | `=` | 切换分隔线的显示/隐藏 |
+| `c` | 切换颜色开/关 |
 | `q` / `Esc` | 退出 |
 
 ## 🪟 Windows 回环流量 (127.0.0.1)
