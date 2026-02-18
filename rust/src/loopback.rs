@@ -1,8 +1,6 @@
 //! Windows 本地回环流量捕获模块
 //!
-//! 提供两种后端:
-//! - Npcap: 通过 pcap crate 捕获 \Device\NPF_Loopback 上的数据包
-//! - ETW:   通过 Event Tracing for Windows 获取网络事件 (实验性)
+//! 通过 Npcap (pcap crate) 捕获 \Device\NPF_Loopback 上的数据包。
 //!
 //! 此模块仅在 Windows 平台编译。非 Windows 平台下提供空实现。
 
@@ -44,8 +42,6 @@ pub enum LoopbackMode {
     None,
     /// 使用 Npcap (pcap) 捕获
     Npcap,
-    /// 使用 ETW 捕获 (实验性)
-    Etw,
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -178,96 +174,6 @@ pub mod platform {
              Npcap download: {NPCAP_URL}"
         ))
     }
-
-    /// 启动 ETW 回环捕获
-    ///
-    /// 实验性功能 — 使用 Windows GetIfEntry API 定时轮询 Loopback 接口统计。
-    /// 注意: 标准 API 对 loopback 的计数器可能始终为 0，
-    /// 但某些 Windows 版本/补丁下可能有效。
-    #[cfg(feature = "etw")]
-    pub fn start_etw(counters: LoopbackCounters) -> Result<String, String> {
-        // 查找 loopback 接口的 dwIndex
-        let loopback_idx = find_loopback_interface_index()?;
-        let info_msg = format!("[etw] Found loopback interface index: {loopback_idx} (experimental, counters may be 0)");
-
-        thread::Builder::new()
-            .name("etw-loopback".to_string())
-            .spawn(move || {
-                etw_poll_loop(loopback_idx, &counters);
-            })
-            .map_err(|e| format!("Failed to spawn ETW thread: {e}"))?;
-
-        Ok(info_msg)
-    }
-
-    /// 通过 GetIfTable 遍历所有接口，找到 dwType == 24 (SOFTWARE_LOOPBACK) 的索引
-    #[cfg(feature = "etw")]
-    fn find_loopback_interface_index() -> Result<u32, String> {
-        use windows_sys::Win32::NetworkManagement::IpHelper::{GetIfTable, MIB_IFTABLE};
-
-        unsafe {
-            // 第一次调用获取所需 buffer 大小
-            let mut size: u32 = 0;
-            GetIfTable(std::ptr::null_mut(), &mut size, 0);
-
-            if size == 0 {
-                return Err("GetIfTable returned size 0".to_string());
-            }
-
-            // 分配 buffer 并第二次调用
-            let mut buf: Vec<u8> = vec![0u8; size as usize];
-            let table_ptr = buf.as_mut_ptr() as *mut MIB_IFTABLE;
-            let ret = GetIfTable(table_ptr, &mut size, 0);
-            if ret != 0 {
-                return Err(format!("GetIfTable failed with error code: {ret}"));
-            }
-
-            let num = (*table_ptr).dwNumEntries as usize;
-            // table 字段是 [MIB_IFROW; 1]，实际是变长数组
-            let entries = std::slice::from_raw_parts((*table_ptr).table.as_ptr(), num);
-
-            for entry in entries {
-                // IF_TYPE_SOFTWARE_LOOPBACK = 24
-                if entry.dwType == 24 {
-                    return Ok(entry.dwIndex);
-                }
-            }
-
-            Err("No loopback interface found via GetIfTable".to_string())
-        }
-    }
-
-    /// 定时轮询 loopback 接口的 dwInOctets / dwOutOctets
-    #[cfg(feature = "etw")]
-    fn etw_poll_loop(if_index: u32, counters: &LoopbackCounters) {
-        use windows_sys::Win32::NetworkManagement::IpHelper::{GetIfEntry, MIB_IFROW};
-
-        let poll_interval = std::time::Duration::from_millis(200);
-
-        loop {
-            unsafe {
-                let mut row: MIB_IFROW = std::mem::zeroed();
-                row.dwIndex = if_index;
-
-                let ret = GetIfEntry(&mut row);
-                if ret == 0 {
-                    // dwInOctets / dwOutOctets 是 u32 累计值
-                    // 对于 loopback，大多数 Windows 版本可能报告 0
-                    counters.bytes_recv.store(row.dwInOctets as u64, Ordering::Relaxed);
-                    counters.bytes_sent.store(row.dwOutOctets as u64, Ordering::Relaxed);
-                }
-            }
-
-            thread::sleep(poll_interval);
-        }
-    }
-
-    #[cfg(not(feature = "etw"))]
-    pub fn start_etw(_counters: LoopbackCounters) -> Result<String, String> {
-        Err("winload was compiled without ETW support (feature 'etw' disabled).\n\
-             Recompile with: cargo build --features etw"
-            .to_string())
-    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -280,12 +186,6 @@ pub mod platform {
 
     pub fn start_npcap(_counters: LoopbackCounters) -> Result<String, String> {
         Err("--npcap is only supported on Windows. \
-             On Linux/macOS, loopback traffic is natively available."
-            .to_string())
-    }
-
-    pub fn start_etw(_counters: LoopbackCounters) -> Result<String, String> {
-        Err("--etw is only supported on Windows. \
              On Linux/macOS, loopback traffic is natively available."
             .to_string())
     }

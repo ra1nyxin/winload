@@ -104,7 +104,6 @@ winload --npcap      # Capture 127.0.0.1 loopback traffic (Windows, requires Npc
 | `--hide-separator` | Hide the separator line (row of equals signs) | off |
 | `--no-color` | Disable all TUI colors (monochrome mode) | off |
 | `--npcap` | **[Windows Rust Only]** Capture loopback traffic via Npcap (recommended) | off |
-| `--etw` | **[Windows Rust Only]** Poll loopback counters via GetIfEntry (experimental) | off |
 | `--debug-info` | **[Rust Only]** Print network interface debug info and exit | — |
 | `-h`, `--help` | Print help (`--help --emoji` for emoji version!) | — |
 | `-V`, `--version` | **[Rust Only]** Print version | — |
@@ -122,22 +121,23 @@ winload --npcap      # Capture 127.0.0.1 loopback traffic (Windows, requires Npc
 
 Windows cannot report loopback traffic through standard APIs — this is a [functional deficiency in Windows' network stack](docs/win_loopback.md).
 
-winload provides two workarounds:
+**To capture loopback traffic on Windows**, use the `--npcap` flag:
 
-| Flag | Method | Status |
-|------|--------|--------|
-| `--npcap` | Npcap WFP callout driver | ✅ **Recommended** — accurate, real packet capture |
-| `--etw` | `GetIfEntry` API polling | ⚠️ Experimental — counters are 0 on most Windows versions |
+```bash
+winload --npcap
+```
 
-**To use `--npcap`**: Install [Npcap](https://npcap.com/#download) and enable "Support loopback traffic capture" during installation.
+This requires [Npcap](https://npcap.com/#download) installed with "Support loopback traffic capture" enabled during setup.
+
+> I previously tried polling Windows' own `GetIfEntry` API directly, but the counters are always 0 for loopback — there is simply no NDIS driver behind the loopback pseudo-interface to count anything. That code path has been removed.
 
 > 📖 For a deep dive into why Windows loopback is broken, see [docs/win_loopback.md](docs/win_loopback.md)
 
 On Linux and macOS, loopback traffic works out of the box — no extra flags needed.
 
 ## 🖼️ Previews
-#### preview of python impl
+#### Python Edition Preview
 ![docs/preview-py.png](docs/preview-py.png)
 
-#### preview of rust impl
+#### Rust Edition Preview
 ![docs/preview-rust.png](docs/preview-rust.png)

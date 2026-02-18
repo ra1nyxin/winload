@@ -1,4 +1,4 @@
-# Windows Loopback Traffic Monitoring: Why ETW Fails and Npcap Works
+# Windows Loopback Traffic Monitoring: Why Standard APIs Fail and Npcap Works
 
 > **[📖 English](win_loopback.md)**
 > **[📖 简体中文(大陆)](win_loopback.zh-cn.md)**
@@ -114,12 +114,13 @@ macOS inherits BSD's design philosophy: loopback is an ordinary network interfac
 
 ## winload's Solution
 
-winload provides two Windows loopback capture backends:
+winload uses **Npcap** as its Windows loopback capture backend:
 
 - **`--npcap` (recommended)**: Captures real loopback packets via Npcap's WFP callout. Accurate data.
   Requires [Npcap](https://npcap.com/#download) installed with "Support loopback traffic capture" enabled.
 
-- **`--etw` (experimental)**: Polls counters via `GetIfEntry` API.
-  Due to the Windows kernel deficiency described above, most versions return 0. **Essentially non-functional.** Kept only for completeness.
+> I previously experimented with polling `GetIfEntry` / `GetIfTable` counters directly, hoping to avoid the Npcap dependency. The result? Counters stubbornly stayed at 0 on every Windows version I tested. As detailed above, this is because the loopback pseudo-interface has no NDIS driver behind it — so there is simply nothing to count. I ended up removing that code path entirely. Thanks, Microsoft, for the *delightful* consistency.
 
-On Linux / macOS, loopback traffic is obtained directly via the `sysinfo` crate — no extra flags needed.
+So yes — to monitor loopback traffic on Windows, you need to install a third-party driver. On Linux and macOS it just works out of the box, because those operating systems treated loopback as a real network device from the start. On Windows, the [Npcap](https://npcap.com/#download) project graciously fills the gap that the OS left behind.
+
+On Linux / macOS, loopback traffic is obtained directly via the [`sysinfo`](https://crates.io/crates/sysinfo) crate — no extra flags needed.

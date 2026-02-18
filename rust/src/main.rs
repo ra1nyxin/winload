@@ -143,17 +143,8 @@ struct Args {
 
     /// [Windows only] Use Npcap to capture loopback traffic (recommended)
     /// Requires Npcap installed: https://npcap.com/#download
-    #[arg(long = "npcap", conflicts_with = "etw")]
+    #[arg(long = "npcap")]
     npcap: bool,
-
-    /// [Windows only] Use GetIfEntry API to poll loopback traffic (experimental)
-    /// WARNING: Most Windows versions report 0 for loopback counters, likely to fail.
-    /// Windows loopback traffic is short-circuited inside tcpip.sys and bypasses
-    /// the NDIS layer, so GetIfEntry counters are never updated.
-    /// Recommend using --npcap instead. Npcap: https://npcap.com/#download
-    /// Details: https://github.com/VincentZyuApps/winload/blob/main/docs/win_loopback.md
-    #[arg(long = "etw", conflicts_with = "npcap")]
-    etw: bool,
 }
 
 // ─── App 状态 ──────────────────────────────────────────────
@@ -211,8 +202,6 @@ impl App {
 
         let loopback_mode = if args.npcap {
             LoopbackMode::Npcap
-        } else if args.etw {
-            LoopbackMode::Etw
         } else {
             LoopbackMode::None
         };
@@ -286,7 +275,6 @@ fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
         let counters = LoopbackCounters::new();
         let result = match app.loopback_mode {
             LoopbackMode::Npcap => loopback::platform::start_npcap(counters.clone()),
-            LoopbackMode::Etw => loopback::platform::start_etw(counters.clone()),
             LoopbackMode::None => unreachable!(),
         };
         match result {
@@ -390,8 +378,6 @@ nload-like TUI tool for Windows/Linux/macOS
 🪟 Windows Loopback:
       --npcap                🟢 Use Npcap to capture loopback traffic (recommended)
                              📥 Download Npcap: https://npcap.com/#download
-      --etw                  🟡 Use GetIfEntry API (experimental, usually shows 0)
-                             ⚠️  Most Windows versions report 0 for loopback counters
 
   💬 Why? Windows loopback is short-circuited in tcpip.sys, bypassing NDIS,
      so counters stay 0. Npcap uses a WFP callout to intercept before the short-circuit.

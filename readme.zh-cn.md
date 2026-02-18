@@ -104,7 +104,6 @@ winload --npcap      # 捕获 127.0.0.1 回环流量 (Windows，需安装 Npcap)
 | `--hide-separator` | 隐藏分隔线（等于号一行） | 关闭 |
 | `--no-color` | 禁用所有 TUI 颜色（单色模式） | 关闭 |
 | `--npcap` | **[Windows Only]** 通过 Npcap 捕获回环流量（推荐） | 关闭 |
-| `--etw` | **[Windows Only]** 通过 GetIfEntry API 轮询回环计数器（实验性） | 关闭 |
 | `--debug-info` | **[Rust Only]** 打印网络接口调试信息后退出 | — |
 | `-h`, `--help` | 打印帮助（`--help --emoji` 可查看 emoji 版！） | — |
 | `-V`, `--version` | **[Rust Only]** 打印版本号 | — |
@@ -122,14 +121,15 @@ winload --npcap      # 捕获 127.0.0.1 回环流量 (Windows，需安装 Npcap)
 
 Windows 无法通过标准 API 报告回环流量——这是 [Windows 网络栈的功能缺失](docs/win_loopback.zh-cn.md)。
 
-winload 提供两种解决方案：
+**要在 Windows 上捕获回环流量**，使用 `--npcap` 参数：
 
-| 参数 | 方式 | 状态 |
-|------|------|------|
-| `--npcap` | Npcap WFP callout 驱动 | ✅ **推荐** — 数据准确，真实数据包捕获 |
-| `--etw` | `GetIfEntry` API 轮询 | ⚠️ 实验性 — 大多数 Windows 版本计数器为 0 |
+```bash
+winload --npcap
+```
 
-**使用 `--npcap`**: 安装 [Npcap](https://npcap.com/#download)，安装时勾选"Support loopback traffic capture"。
+需要安装 [Npcap](https://npcap.com/#download)，安装时勾选 "Support loopback traffic capture"。
+
+> 我之前尝试过直接轮询 Windows 自带的 `GetIfEntry` API，但 loopback 的计数器始终为 0——loopback 伪接口背后根本没有 NDIS 驱动在计数。该代码路径已被移除。
 
 > 📖 深入了解 Windows 回环为何失效，请阅读 [docs/win_loopback.zh-cn.md](docs/win_loopback.zh-cn.md)
 

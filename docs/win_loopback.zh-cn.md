@@ -1,4 +1,4 @@
-# Windows Loopback 流量监控：为什么 ETW 不行，Npcap 可以？
+# Windows Loopback 流量监控：为什么标准 API 不行，Npcap 可以？
 
 > **[📖 English](win_loopback.md)**
 > **[📖 简体中文(大陆)](win_loopback.zh-cn.md)**
@@ -129,12 +129,13 @@ Linux 的 `lo` 驱动在 loopback 路径上只多了几个函数调用——开�
 
 ## winload 的解决方案
 
-winload 提供两种 Windows loopback 捕获方式：
+winload 使用 **Npcap** 作为 Windows loopback 捕获后端：
 
 - **`--npcap` (推荐)**: 通过 Npcap 的 WFP callout 捕获真实 loopback 数据包，数据准确。
   需要安装 [Npcap](https://npcap.com/#download)，安装时勾选 "Support loopback traffic capture"。
 
-- **`--etw` (实验性)**: 通过 `GetIfEntry` API 轮询计数器。
-  由于上述 Windows 内核的功能缺失，大多数版本返回 0，**基本不可用**。仅作兼容保留。
+> 我曾经尝试过直接轮询 `GetIfEntry` / `GetIfTable` 计数器，希望能绕开 Npcap 依赖。结果呢？在我测试的每个 Windows 版本上，计数器都雷打不动地保持为 0。如上文所述，loopback 伪接口背后没有 NDIS 驱动，根本没有东西在计数。最终我删除了那部分代码。感谢微软一贯的 *稳定发挥*。
 
-在 Linux / macOS 上，loopback 流量通过 `sysinfo` crate 直接获取，无需额外参数。
+所以是的——在 Windows 上监控回环流量，必须安装第三方驱动。而 Linux 和 macOS 上开箱即用，因为这些操作系统从一开始就把 loopback 当成真正的网络设备来对待。Windows 上则靠 [Npcap](https://npcap.com/#download) 项目填了操作系统留下的坑。
+
+在 Linux / macOS 上，loopback 流量通过 [`sysinfo`](https://crates.io/crates/sysinfo) crate 直接获取，无需额外参数。

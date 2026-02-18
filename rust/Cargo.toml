@@ -1,6 +1,6 @@
 [package]
 name = "winload"
-version = "0.1.6-beta.1"
+version = "0.1.6-beta.2"
 edition = "2021"
 description = "Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS"
 license = "MIT"
@@ -18,15 +18,10 @@ clap = { version = "4", features = ["derive"] }
 
 [target.'cfg(windows)'.dependencies]
 pcap = { version = "2", optional = true }
-windows-sys = { version = "0.59", features = [
-    "Win32_Foundation",
-    "Win32_NetworkManagement_IpHelper",
-], optional = true }
 
 [features]
-default = ["npcap", "etw"]
+default = ["npcap"]
 npcap = ["pcap"]
-etw = ["windows-sys"]
 
 [profile.release]
 opt-level = 3
