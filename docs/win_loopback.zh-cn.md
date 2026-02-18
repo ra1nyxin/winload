@@ -1,6 +1,7 @@
 # Windows Loopback 流量监控：为什么 ETW 不行，Npcap 可以？
 
 > **[📖 English version](win_loopback.md)**
+> **[📖 中文版(Traditional Chinese)](win_loopback.zh-tw.md)**
 
 ## TL;DR
 
