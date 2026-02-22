@@ -31,20 +31,20 @@ use stats::StatisticsEngine;
 /// 显示单位
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Unit {
-    /// 以 Bit/s 显示速率 (默认)
+    /// 以 Bit/s 显示速率 (默认) / Display rates in Bit/s (default)
     Bit,
-    /// 以 Byte/s 显示速率
+    /// 以 Byte/s 显示速率 / Display rates in Byte/s
     Byte,
 }
 
 /// 状态栏/帮助栏样式
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum BarStyle {
-    /// 背景色铺满整行 (默认)
+    /// 背景色铺满整行 (默认) / Background color fills entire line (default)
     Fill,
-    /// 背景色仅在文字上
+    /// 背景色仅在文字上 / Background color only on text
     Color,
-    /// 无背景色，纯文字着色
+    /// 无背景色，纯文字着色 / No background, text color only
     Plain,
 }
 
@@ -81,68 +81,85 @@ pub fn parse_hex_color(s: &str) -> Result<ratatui::style::Color, String> {
 
 // ─── CLI 参数 ──────────────────────────────────────────────
 
-/// Network Load Monitor — nload-like TUI tool
+/// Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS
+/// 网络负载监控工具 — 仿 Linux nload 的终端网络流量监控工具
 #[derive(Parser)]
 #[command(name = "winload", version, about)]
 struct Args {
     /// Refresh interval in milliseconds
+    /// 刷新间隔（毫秒）
     #[arg(short = 't', long = "interval", default_value = "500")]
     interval: u64,
 
     /// Average window in seconds
+    /// 平均窗口时间（秒）
     #[arg(short = 'a', long = "average", default_value = "300")]
     average: u64,
 
     /// Default device name (partial match)
+    /// 默认网卡名称（支持部分匹配）
     #[arg(short = 'd', long = "device")]
     device: Option<String>,
 
     /// Print debug info about network interfaces and exit
+    /// 打印网卡调试信息并退出
     #[arg(long = "debug-info")]
     debug_info: bool,
 
     /// Enable emoji decorations in TUI and output
+    /// 在 TUI 和输出中启用 emoji 装饰
     #[arg(short = 'e', long = "emoji")]
     emoji: bool,
 
     /// Use Unicode block characters for graph (█▓░· instead of #|..)
+    /// 使用 Unicode 块字符绘制图形（█▓░· 代替 #|..）
     #[arg(short = 'U', long = "unicode")]
     unicode: bool,
 
     /// Display unit: bit (default) or byte
+    /// 显示单位：bit（默认）或 byte
     #[arg(short = 'u', long = "unit", value_enum, default_value = "bit")]
     unit: Unit,
 
     /// Bar style for header/label/help: fill (default), color, plain
+    /// 状态栏/帮助栏样式：fill（默认），color，plain
     #[arg(short = 'b', long = "bar-style", value_enum, default_value = "fill")]
     bar_style: BarStyle,
 
     /// Incoming (download) graph color, hex RGB (e.g. 0x00d7ff). Default: cyan
+    /// 入站（下载）图形颜色，十六进制 RGB（如 0x00d7ff）。默认：青色
     #[arg(long = "in-color", value_parser = parse_hex_color)]
     in_color: Option<ratatui::style::Color>,
 
     /// Outgoing (upload) graph color, hex RGB (e.g. 0xffaf00). Default: gold
+    /// 出站（上传）图形颜色，十六进制 RGB（如 0xffaf00）。默认：金色
     #[arg(long = "out-color", value_parser = parse_hex_color)]
     out_color: Option<ratatui::style::Color>,
 
     /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K). Default: auto-scale
+    /// 固定图形 Y 轴最大值（如 100M、1G、500K）。默认：自动缩放
     #[arg(short = 'm', long = "max", value_parser = parse_max_value)]
     max: Option<f64>,
 
     /// Hide traffic graphs, show only statistics
+    /// 隐藏流量图形，仅显示统计信息
     #[arg(short = 'n', long = "no-graph")]
     no_graph: bool,
 
     /// Hide separator line (the row of equals signs between header and panels)
+    /// 隐藏分隔线（标题和面板之间的等号行）
     #[arg(long = "hide-separator")]
     hide_separator: bool,
 
     /// Disable all TUI colors (monochrome mode). Press 'c' to toggle at runtime
+    /// 禁用所有 TUI 颜色（单色模式）。运行时按 'c' 切换
     #[arg(long = "no-color")]
     no_color: bool,
 
     /// [Windows only] Use Npcap to capture loopback traffic (recommended)
     /// Requires Npcap installed: https://npcap.com/#download
+    /// [仅 Windows] 使用 Npcap 捕获回环流量（推荐）
+    /// 需要安装 Npcap：https://npcap.com/#download
     #[arg(long = "npcap")]
     npcap: bool,
 }
