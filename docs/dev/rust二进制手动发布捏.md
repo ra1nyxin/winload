@@ -318,6 +318,14 @@ sudo dnf install https://github.com/VincentZyu233/winload/releases/download/v${V
 
 ### 3. AUR 包 (Arch Linux) ⭐
 
+AUR 支持两个包：
+- **`winload-rust`** — 源码包，从 GitHub 编译（适合信任源码的用户）
+- **`winload-rust-bin`** — 预编译二进制包（适合不想编译的用户）
+
+---
+
+#### 方案 A: winload-rust-bin（预编译二进制）
+
 这是一个 **预编译二进制包**（`-bin` 后缀），用户不需要在本地编译 Rust。
 支持 **x86_64 + aarch64** 双架构（都用 musl 零依赖）。
 
@@ -355,16 +363,18 @@ ssh -T aur@aur.archlinux.org
 # ============================================================
 # Step 1: 在 AUR 上创建包（首次）
 # ============================================================
-git clone ssh://aur@aur.archlinux.org/winload-bin.git
-cd winload-bin
+git clone ssh://aur@aur.archlinux.org/winload-rust-bin.git
+cd winload-rust-bin
 
 # ============================================================
 # Step 2: 获取二进制的 sha256（从已发布的 GitHub Release）
 # ============================================================
 VERSION="0.1.5"  # 替换为实际版本号
+# VERSION="0.1.6-beta.2"
 
 # 下载 x86_64 版本并计算哈希
 wget "https://github.com/VincentZyu233/winload/releases/download/v${VERSION}/winload-linux-x86_64-v${VERSION}"
+# wget "https://github.com/VincentZyuApps/winload/releases/download/v0.1.6-beta.2/winload-linux-x86_64-v0.1.6-beta.2"
 SHA256_X86=$(sha256sum "winload-linux-x86_64-v${VERSION}" | awk '{print $1}')
 rm "winload-linux-x86_64-v${VERSION}"
 
@@ -381,18 +391,18 @@ echo "aarch64 SHA256: $SHA256_AARCH64"
 # ============================================================
 cat > PKGBUILD << EOF
 # Maintainer: VincentZyu <vincentzyu233@gmail.com>
-pkgname=winload-bin
+pkgname=winload-rust-bin
 pkgver=${VERSION}
 pkgrel=1
 pkgdesc="A lightweight, real-time CLI tool for monitoring network bandwidth and traffic"
 arch=('x86_64' 'aarch64')
-url="https://github.com/VincentZyu233/winload"
+url="https://github.com/VincentZyuApps/winload"
 license=('MIT')
 provides=('winload')
-conflicts=('winload')
+conflicts=('winload' 'winload-rust')
 
-source_x86_64=("winload-linux-x86_64-v\${pkgver}::https://github.com/VincentZyu233/winload/releases/download/v\${pkgver}/winload-linux-x86_64-v\${pkgver}")
-source_aarch64=("winload-linux-aarch64-v\${pkgver}::https://github.com/VincentZyu233/winload/releases/download/v\${pkgver}/winload-linux-aarch64-v\${pkgver}")
+source_x86_64=("winload-linux-x86_64-v\${pkgver}::https://github.com/VincentZyuApps/winload/releases/download/v\${pkgver}/winload-linux-x86_64-v\${pkgver}")
+source_aarch64=("winload-linux-aarch64-v\${pkgver}::https://github.com/VincentZyuApps/winload/releases/download/v\${pkgver}/winload-linux-aarch64-v\${pkgver}")
 
 noextract=()
 
@@ -409,28 +419,59 @@ package() {
 EOF
 
 echo "✅ PKGBUILD created:"
-cat PKGBUILD
+batcat PKGBUILD
 
 # ============================================================
 # Step 4: 生成 .SRCINFO（AUR 必需）
 # ============================================================
+su builduser
 makepkg --printsrcinfo > .SRCINFO
 
 echo "✅ .SRCINFO generated:"
+bat .SRCINFO
 cat .SRCINFO
 
 # ============================================================
 # Step 5: 本地测试构建（可选但推荐）
 # ============================================================
+docker cp /mnt/d/aaaStuffsaaa/from_git/github/winload/tmp/. arch-container:/tmp/winload-build
+docker start -i arch-container
+pacman -Syu --noconfirm base-devel
+useradd -m builduser
+echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+# 切换到构建目录并修改权限
+chown -R builduser:builduser /tmp/winload-build
+cd /tmp/winload-build
+# 1. 先把 pkgver 改成合规的格式 (0.1.6.beta2)
+sed -i 's/pkgver=0.1.6-beta.2/pkgver=0.1.6.beta.2/' PKGBUILD
+# 2. 在其下方插入原始版本变量 _tagver
+sed -i '/pkgver=/a _tagver=0.1.6-beta.2' PKGBUILD
+# 3. 把后面所有引用链接和文件的地方从 ${pkgver} 改成 ${_tagver}
+sed -i 's/${pkgver}/${_tagver}/g' PKGBUILD
+su builduser
 makepkg -si
 winload --version
-sudo pacman -R winload-bin
+sudo pacman -R winload-rust-bin
 
 # ============================================================
 # Step 6: 提交到 AUR
 # ============================================================
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/github/winload/tmp# mv ./* /mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin
+mv ./.SRCINFO /mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin/
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/github/winload/tmp# ls
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/github/winload/tmp# pwd
+/mnt/d/aaaStuffsaaa/from_git/github/winload/tmp
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/github/winload/tmp#
+
+
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin# ls
+PKGBUILD  winload-linux-aarch64-v0.1.6-beta.2  winload-linux-x86_64-v0.1.6-beta.2  winload-rust-bin
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin# pwd
+/mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin
+root@DESKTOP-28AGCCU:/mnt/d/aaaStuffsaaa/from_git/aur/winload-rust-bin#
+
 git add PKGBUILD .SRCINFO
-git commit -m "Initial upload: winload-bin ${VERSION}"
+git commit -m "Initial upload: winload-rust-bin ${VERSION}"
 git push
 ```
 
@@ -445,7 +486,7 @@ git push
 #### 后续版本更新
 
 ```bash
-cd winload-bin  # 之前 clone 的 AUR 仓库
+cd winload-rust-bin  # 之前 clone 的 AUR 仓库
 
 # 1. 更新版本号和哈希
 NEW_VERSION="0.2.0"
@@ -469,9 +510,45 @@ sed -i "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${NEW_SHA256_AARCH64}')/" 
 makepkg --printsrcinfo > .SRCINFO
 
 # 3. 提交推送
+# 确保在 /mnt/d/.../aur/winload-rust-bin 目录
+# 1. 修正 pkgver
+sed -i 's/pkgver=0.1.6-beta.2/pkgver=0.1.6.beta.2/' PKGBUILD
+# 2. 插入 _tagver 变量（用于下载链接）
+sed -i '/pkgver=/a _tagver=0.1.6-beta.2' PKGBUILD
+# 3. 将所有引用改为变量
+sed -i 's/${pkgver}/${_tagver}/g' PKGBUILD
 git add PKGBUILD .SRCINFO
 git commit -m "Update to ${NEW_VERSION}"
 git push
+```
+
+#### 装个paru测试一下
+```shell
+# arch
+wsl
+docker start -i arch-container
+pacman -Syu --needed base-devel git
+pacman -Syu proxychains proxychains-ng
+# 1. 切换到普通用户（假设你之前的 builduser 还在）
+su builduser
+# 1. 删掉刚才那个没用的目录
+cd /tmp
+rm -rf paru-bin
+
+# 2. 安装 Rust 编译器（编译 paru 需要它）
+sudo pacman -S --needed rust cargo
+
+# 3. 克隆源码仓库（注意这次没加 -bin）
+git clone https://aur.archlinux.org/paru.git
+cd paru
+
+# 4. 编译并安装
+makepkg -si
+proxychains4 makepkg -si
+paru -S winload-rust-bin
+paru -Syu winload-rust-bin
+proxychains paru -Syu winload-rust-bin
+pacman -Ql winload-rust-bin
 ```
 
 #### ⚠️ 常见坑
@@ -489,15 +566,135 @@ git push
 
 ```bash
 # 使用 AUR helper（自动检测架构）
-paru -S winload-bin
+paru -S winload-rust-bin
 # 或
-yay -S winload-bin
+yay -S winload-rust-bin
 
 # 手动安装
-git clone https://aur.archlinux.org/winload-bin.git
-cd winload-bin
+git clone https://aur.archlinux.org/winload-rust-bin.git
+cd winload-rust-bin
 makepkg -si
 ```
+
+---
+
+#### 方案 B: winload-rust（源码包，从 GitHub 编译）
+
+这是一个 **源码包**，从 GitHub 下载源码并在本地编译。
+支持 **x86_64 + aarch64** 双架构。
+
+##### 前期准备（首次）
+
+同 `winload-rust-bin`，需要先配置好 AUR SSH 访问（见上文 Step 1-5）。
+
+##### 创建并发布 PKGBUILD
+
+```bash
+# ============================================================
+# Step 1: 在 AUR 上创建包（首次）
+# ============================================================
+git clone ssh://aur@aur.archlinux.org/winload-rust.git
+cd winload-rust
+
+# ============================================================
+# Step 2: 创建 PKGBUILD
+# ============================================================
+VERSION="0.1.6-beta.2"  # 替换为实际版本号
+
+cat > PKGBUILD << EOF
+# Maintainer: VincentZyu <vincentzyu233@gmail.com>
+pkgname=winload-rust
+pkgver=${VERSION}
+pkgrel=1
+pkgdesc="Network Load Monitor - nload for Windows/Linux/macOS (compiled from source)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/VincentZyuApps/winload"
+license=('MIT')
+provides=('winload')
+conflicts=('winload' 'winload-rust-bin')
+
+depends=('gcc-libs' 'musl')
+
+source=("https://github.com/VincentZyuApps/winload/archive/refs/tags/v\${pkgver}.tar.gz")
+
+sha256sums=('SKIP')  # 用 SKIP，makepkg 会自动验证
+
+build() {
+    cd winload-\${pkgver}/rust
+    cargo build --release --target \${CARCH}-unknown-linux-musl
+}
+
+package() {
+    cd winload-\${pkgver}/rust
+    install -Dm755 "target/\${CARCH}-unknown-linux-musl/release/winload" "\$pkgdir/usr/bin/winload"
+}
+EOF
+
+# ============================================================
+# Step 3: 生成 .SRCINFO
+# ============================================================
+makepkg --printsrcinfo > .SRCINFO
+
+# ============================================================
+# Step 4: 本地测试构建（可选但推荐）
+# ============================================================
+makepkg -si
+winload --version
+sudo pacman -R winload-rust
+
+# ============================================================
+# Step 5: 提交到 AUR
+# ============================================================
+git add PKGBUILD .SRCINFO
+git commit -m "Initial upload: winload-rust ${VERSION}"
+git push
+```
+
+> 📌 **关键知识点**：
+> - `source=()` — 从 GitHub 下载源码 tarball
+> - `depends=('gcc-libs' 'musl')` — Rust musl 目标依赖
+> - `build()` — 调用 cargo 编译，使用 musl 目标
+> - `$CARCH` — makepkg 变量，值为 `x86_64` 或 `aarch64`
+
+##### 后续版本更新
+
+```bash
+cd winload-rust
+
+# 1. 更新版本号
+NEW_VERSION="0.2.0"
+sed -i "s/^pkgver=.*/pkgver=${NEW_VERSION}/" PKGBUILD
+
+# 2. 重新生成 .SRCINFO
+makepkg --printsrcinfo > .SRCINFO
+
+# 3. 提交推送
+git add PKGBUILD .SRCINFO
+git commit -m "Update to ${NEW_VERSION}"
+git push
+```
+
+##### 用户安装方式
+
+```bash
+# 使用 AUR helper
+paru -S winload-rust
+# 或
+yay -S winload-rust
+
+# 手动安装
+git clone https://aur.archlinux.org/winload-rust.git
+cd winload-rust
+makepkg -si
+```
+
+##### ⚠️ 常见坑
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 编译失败 | 缺少 musl 目标 | `rustup target add x86_64-unknown-linux-musl` |
+| 依赖缺失 | aarch64 交叉编译 | 确保安装 aarch64 工具链 |
+| `.SRCINFO` 忘记更新 | AUR 用它显示包信息 | 每次改 PKGBUILD 后必须重新生成 |
 
 ---
 
@@ -770,7 +967,7 @@ mv winload-linux-aarch64-v${VERSION} $PREFIX/bin/winload
 - [ ] 更新 Scoop manifest（CI 自动化 / 手动更新 version+hash）
 - [ ] 更新 Homebrew Formula（更新 version 和 sha256）
 - [ ] 更新 AUR PKGBUILD（更新 pkgver、sha256sums，重新生成 .SRCINFO）
-- [ ] 测试安装：`scoop install winload`、`brew install winload`、`paru -S winload-bin`
+- [ ] 测试安装：`scoop install winload`、`brew install winload`、`paru -S winload-rust-bin`、`paru -S winload-rust`
 
 > 🤖 后续 CI 自动化后，DEB/RPM/AUR 会自动发布 x86_64 + aarch64 双架构（都用 musl 零依赖）。
 

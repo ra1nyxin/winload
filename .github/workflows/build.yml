@@ -480,9 +480,9 @@ jobs:
 
           echo "✅ Scoop bucket updated!"
 
-  # ── 更新 AUR 包（x86_64 + aarch64）────────────────────
-  publish-aur:
-    name: Update AUR Package
+  # ── 更新 AUR 包（winload-rust-bin: 预编译二进制）─────────────
+  publish-aur-bin:
+    name: Update AUR Package (winload-rust-bin)
     needs: [check, release]
     if: always() && needs.check.outputs.should_publish == 'true' && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
@@ -517,19 +517,19 @@ jobs:
 
           cat > PKGBUILD << HEREDOC_END
           # Maintainer: VincentZyu <vincentzyu233@gmail.com>
-          pkgname=winload-bin
+          pkgname=winload-rust-bin
           pkgver=${PKGVER}
           pkgrel=1
           pkgdesc="A lightweight, real-time CLI tool for monitoring network bandwidth and traffic"
           arch=('x86_64' 'aarch64')
-          url="https://github.com/VincentZyu233/winload"
+          url="https://github.com/VincentZyuApps/winload"
           license=('MIT')
           provides=('winload')
-          conflicts=('winload')
-          _base_url="https://github.com/VincentZyu233/winload/releases/download/v\${pkgver}"
+          conflicts=('winload' 'winload-rust')
+          _base_url="https://github.com/VincentZyuApps/winload/releases/download/v\${pkgver}"
           source_x86_64=("winload-linux-x86_64-v\${pkgver}::\${_base_url}/winload-linux-x86_64-v\${pkgver}")
           source_aarch64=("winload-linux-aarch64-v\${pkgver}::\${_base_url}/winload-linux-aarch64-v\${pkgver}")
-          noextract=("winload-linux-x86_64-v\${pkgver}" "winload-linux-aarch64-v\${pkgver}")
+          noextract=()
           sha256sums_x86_64=('${SHA256_X86}')
           sha256sums_aarch64=('${SHA256_ARM}')
 
@@ -572,15 +572,15 @@ jobs:
           SSHEOF
 
           # Clone AUR repo
-          git clone ssh://aur@aur.archlinux.org/winload-bin.git aur-repo || {
+          git clone ssh://aur@aur.archlinux.org/winload-rust-bin.git aur-repo || {
             echo "⚠️ AUR repo doesn't exist yet. Please create it manually first."
-            echo "   Run: ssh aur@aur.archlinux.org setup-repo winload-bin"
+            echo "   Run: ssh aur@aur.archlinux.org setup-repo winload-rust-bin"
             exit 1
           }
 
           # Copy files
           cp PKGBUILD aur-repo/
-          cp .SRCINFO aur-repo/ 2>/dev/null || true
+          cp .SRCINFO aur-repo/
 
           # Commit and push
           cd aur-repo
@@ -590,4 +590,4 @@ jobs:
           git commit -m "Update to ${PKGVER}" || echo "No changes to commit"
           git push
 
-          echo "✅ AUR package updated!"
+          echo "✅ winload-rust-bin updated!"
