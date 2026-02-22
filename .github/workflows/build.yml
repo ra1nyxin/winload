@@ -325,6 +325,16 @@ jobs:
             echo '```'
             echo "> 📄 [View install script source](https://github.com/${REPO}/blob/main/docs/install_scripts/install.sh)"
             echo ""
+            echo "**Arch Linux (AUR):**"
+            echo '```bash'
+            echo "# Precompiled binary (recommended)"
+            echo "paru -S winload-rust-bin"
+            echo ""
+            echo "# Or compile from source"
+            echo "paru -S winload-rust"
+            echo '```'
+            echo "> 📄 [winload-rust-bin](https://aur.archlinux.org/packages/winload-rust-bin) · [winload-rust](https://aur.archlinux.org/packages/winload-rust)"
+            echo ""
             echo "---"
             echo ""
             echo "### What's Changed"
@@ -513,7 +523,8 @@ jobs:
       - name: Generate PKGBUILD
         run: |
           VERSION="${{ needs.check.outputs.version }}"
-          PKGVER="${VERSION#v}"
+          TAGVER="${VERSION#v}"           # 0.1.6-beta.3 (for download URL)
+          PKGVER="${TAGVER//-/.}"         # 0.1.6.beta.3 (AUR compliant)
 
           cat > PKGBUILD << HEREDOC_END
           # Maintainer: VincentZyu <vincentzyu233@gmail.com>
@@ -526,18 +537,19 @@ jobs:
           license=('MIT')
           provides=('winload')
           conflicts=('winload' 'winload-rust')
-          _base_url="https://github.com/VincentZyuApps/winload/releases/download/v\${pkgver}"
-          source_x86_64=("winload-linux-x86_64-v\${pkgver}::\${_base_url}/winload-linux-x86_64-v\${pkgver}")
-          source_aarch64=("winload-linux-aarch64-v\${pkgver}::\${_base_url}/winload-linux-aarch64-v\${pkgver}")
+          _tagver=${TAGVER}
+          _base_url="https://github.com/VincentZyuApps/winload/releases/download/v\${_tagver}"
+          source_x86_64=("winload-linux-x86_64-v\${_tagver}::\${_base_url}/winload-linux-x86_64-v\${_tagver}")
+          source_aarch64=("winload-linux-aarch64-v\${_tagver}::\${_base_url}/winload-linux-aarch64-v\${_tagver}")
           noextract=()
           sha256sums_x86_64=('${SHA256_X86}')
           sha256sums_aarch64=('${SHA256_ARM}')
 
           package() {
               if [[ "\$CARCH" == "x86_64" ]]; then
-                  install -Dm755 "\$srcdir/winload-linux-x86_64-v\${pkgver}" "\$pkgdir/usr/bin/winload"
+                  install -Dm755 "\$srcdir/winload-linux-x86_64-v\${_tagver}" "\$pkgdir/usr/bin/winload"
               elif [[ "\$CARCH" == "aarch64" ]]; then
-                  install -Dm755 "\$srcdir/winload-linux-aarch64-v\${pkgver}" "\$pkgdir/usr/bin/winload"
+                  install -Dm755 "\$srcdir/winload-linux-aarch64-v\${_tagver}" "\$pkgdir/usr/bin/winload"
               fi
           }
           HEREDOC_END
@@ -558,7 +570,8 @@ jobs:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         run: |
           VERSION="${{ needs.check.outputs.version }}"
-          PKGVER="${VERSION#v}"
+          TAGVER="${VERSION#v}"           # 0.1.6-beta.3 (for download URL)
+          PKGVER="${TAGVER//-/.}"         # 0.1.6.beta.3 (AUR compliant)
 
           # Setup SSH for AUR
           mkdir -p ~/.ssh
