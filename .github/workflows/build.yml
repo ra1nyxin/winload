@@ -319,21 +319,24 @@ jobs:
             echo "| **x86_64** | [exe](${BASE_URL}/winload-windows-x86_64-${VERSION}.exe) | [binary](${BASE_URL}/winload-linux-x86_64-${VERSION}) · [deb](${BASE_URL}/winload-linux-x86_64-${VERSION}.deb) · [rpm](${BASE_URL}/winload-linux-x86_64-${VERSION}.rpm) | [binary](${BASE_URL}/winload-macos-x86_64-${VERSION}) |"
             echo "| **ARM64** | [exe](${BASE_URL}/winload-windows-aarch64-${VERSION}.exe) | [binary](${BASE_URL}/winload-linux-aarch64-${VERSION}) · [deb](${BASE_URL}/winload-linux-aarch64-${VERSION}.deb) · [rpm](${BASE_URL}/winload-linux-aarch64-${VERSION}.rpm) | [binary](${BASE_URL}/winload-macos-aarch64-${VERSION}) |"
             echo ""
+            echo "**Windows (Scoop):**"
+            echo '```powershell'
+            echo "scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket"
+            echo "scoop install winload"
+            echo '```'
+            echo "> 📄 [Scoop bucket](https://github.com/VincentZyuApps/scoop-bucket)"
+            echo ""
+            echo "**Arch Linux (AUR):**"
+            echo '```bash'
+            echo "paru -S winload-rust-bin"
+            echo '```'
+            echo "> 📄 [winload-rust-bin](https://aur.archlinux.org/packages/winload-rust-bin)"
+            echo ""
             echo "**Quick install (Debian/Ubuntu/Fedora and derivatives):**"
             echo '```bash'
             echo "curl -fsSL https://raw.githubusercontent.com/${REPO}/main/docs/install_scripts/install.sh | bash"
             echo '```'
             echo "> 📄 [View install script source](https://github.com/${REPO}/blob/main/docs/install_scripts/install.sh)"
-            echo ""
-            echo "**Arch Linux (AUR):**"
-            echo '```bash'
-            echo "# Precompiled binary (recommended)"
-            echo "paru -S winload-rust-bin"
-            echo ""
-            echo "# Or compile from source"
-            echo "paru -S winload-rust"
-            echo '```'
-            echo "> 📄 [winload-rust-bin](https://aur.archlinux.org/packages/winload-rust-bin) · [winload-rust](https://aur.archlinux.org/packages/winload-rust)"
             echo ""
             echo "---"
             echo ""

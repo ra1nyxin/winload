@@ -37,6 +37,11 @@ scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
+**Arch Linux (AUR):**
+```bash
+paru -S winload-rust-bin
+```
+
 ### Linux (one-liner)
 > Supports Debian/Ubuntu and derivatives — Linux Mint, Pop!_OS, Deepin, UOS, etc. (apt)
 
@@ -60,17 +65,6 @@ sudo apt install ./winload_*_amd64.deb
 **RPM (Fedora/RHEL):**
 ```bash
 sudo dnf install ./winload-*-1.x86_64.rpm
-```
-
-**macOS (Homebrew) — coming soon:**
-```bash
-brew tap VincentZyu233/tap
-brew install winload
-```
-
-**Arch Linux (AUR):**
-```bash
-paru -S winload-bin
 ```
 
 **Or download binaries directly from [GitHub Releases](https://github.com/VincentZyuApps/winload/releases).**

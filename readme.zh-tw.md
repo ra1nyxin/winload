@@ -37,6 +37,11 @@ scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
+**Arch Linux (AUR):**
+```bash
+paru -S winload-bin
+```
+
 ### Linux (一鍵安裝指令稿)
 > 支援 Debian/Ubuntu 及其衍生版 —— Linux Mint、Pop!_OS、Deepin、UnionTech OS 等 (apt)
 > 支援 Fedora/RHEL 及其衍生版 —— Rocky Linux、AlmaLinux、CentOS Stream 等 (dnf)
@@ -56,17 +61,6 @@ sudo dpkg -i winload_*_amd64.deb
 **RPM (Fedora/RHEL):**
 ```bash
 sudo dnf install ./winload-*-1.x86_64.rpm
-```
-
-**macOS (Homebrew) — 即將支援：**
-```bash
-brew tap VincentZyu233/tap
-brew install winload
-```
-
-**Arch Linux (AUR):**
-```bash
-paru -S winload-bin
 ```
 
 **或者直接從 [GitHub Releases](https://github.com/VincentZyuApps/winload/releases) 下載二進制文件。**

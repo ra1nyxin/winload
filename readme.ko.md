@@ -36,6 +36,11 @@ scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
+**Arch Linux (AUR):**
+```bash
+paru -S winload-bin
+```
+
 ### Linux (간편 설치 스크립트)
 > Debian/Ubuntu 및 파생 버전(Linux Mint, Pop!_OS, Deepin, UOS 등) 지원 (apt)
 
@@ -59,17 +64,6 @@ sudo apt install ./winload_*_amd64.deb
 **RPM (Fedora/RHEL):**
 ```bash
 sudo dnf install ./winload-*-1.x86_64.rpm
-```
-
-**macOS (Homebrew) — 출시 예정:**
-```bash
-brew tap VincentZyu233/tap
-brew install winload
-```
-
-**Arch Linux (AUR):**
-```bash
-paru -S winload-bin
 ```
 
 **또는 [GitHub Releases](https://github.com/VincentZyuApps/winload/releases)에서 바이너리를 직접 다운로드할 수 있습니다.**
