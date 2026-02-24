@@ -42,7 +42,7 @@ scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
-**Arch Linux (AUR):**
+### Arch Linux (AUR):
 ```bash
 paru -S winload-bin
 ```
@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/VincentZyuApps/winload/main/docs/in
 > 📄 [インストールスクリプトのソースを表示](https://github.com/VincentZyuApps/winload/blob/main/docs/install_scripts/install.sh)
 
 <details>
-<summary>手動インストール / その他のプラットフォーム</summary>
+<summary>手動インストール</summary>
 
 **DEB (Debian/Ubuntu):**
 ```bash

@@ -11,6 +11,7 @@
 ### 1. 确认版本号
 ```bash
 # 从 pyproject.toml 读取版本
+wsl
 grep '^version' py/pyproject.toml
 # 例: version = "0.1.6-beta.3"
 ```
@@ -18,11 +19,12 @@ grep '^version' py/pyproject.toml
 
 ### 2. 安装 uv（如果还没安装）
 ```bash
-# Windows
-winget install uv
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://gitee.com/wangnov/uv-custom/releases/download/0.10.5/uv-installer-custom.ps1 | iex"
 
 # macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://gitee.com/wangnov/uv-custom/releases/download/0.10.5/uv-installer-custom.sh | sh
+
 ```
 
 ### 3. 安装构建依赖
@@ -56,10 +58,14 @@ ls dist/
 cd py
 
 # 发布到 TestPyPI（测试）
-uv publish --index https://test.pypi.org/simple/
+# uv publish --index https://test.pypi.org/simple/
+uv publish --publish-url https://test.pypi.org/legacy/
 
 # 测试安装
-pip install --index-url https://test.pypi.org/simple/ winload
+cd D:\aaaStuffsaaa\from_git\test\20260224_test_winload
+uv venv
+uv pip install --index-url https://test.pypi.org/simple/ winload
+uv run py winload --help
 
 # 发布到正式 PyPI
 uv publish

@@ -16,9 +16,17 @@ import argparse
 import curses
 import sys
 import time
+from importlib.metadata import version as get_pkg_version
 
 from collector import Collector
 from ui import UI
+
+
+def get_version() -> str:
+    try:
+        return get_pkg_version("winload")
+    except Exception:
+        return "unknown"
 
 
 def parse_max_value(s: str) -> float:
@@ -157,6 +165,13 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Hide separator line between header and panels\n"
         "隐藏分隔线（头部下方的一行等于号）",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"winload {get_version()}",
+        help="Print version\n打印版本号",
     )
     parser.add_argument(
         "--no-color",
