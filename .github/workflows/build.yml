@@ -76,7 +76,7 @@ jobs:
           echo "should_publish=$PUBLISH" >> "$GITHUB_OUTPUT"
           echo "should_publish_pypi=$PUBLISH_PYPI" >> "$GITHUB_OUTPUT"
           
-          echo "📋 Flags: build=$BUILD release=$RELEASE publish=$PUBLISH"
+          echo "📋 Flags: build=$BUILD release=$RELEASE publish=$PUBLISH publish_pypi=$PUBLISH_PYPI"
 
   # ── 多平台构建 ───────────────────────────────────────────
   build:
@@ -627,8 +627,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
 
       - name: Build package
         working-directory: py
