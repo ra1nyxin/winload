@@ -84,7 +84,7 @@ pub fn parse_hex_color(s: &str) -> Result<ratatui::style::Color, String> {
 /// Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS
 /// 网络负载监控工具 — 仿 Linux nload 的终端网络流量监控工具
 #[derive(Parser)]
-#[command(name = "winload", version, about)]
+#[command(name = "winload", version = "0.1.6-beta.3 (Rust edition)", about)]
 struct Args {
     /// Refresh interval in milliseconds
     /// 刷新间隔（毫秒）
@@ -418,9 +418,6 @@ nload-like TUI tool for Windows/Linux/macOS
 }
 
 fn main() -> io::Result<()> {
-    // 如果同时传了 --help + --emoji，输出带 emoji 的帮助后退出
-    maybe_print_emoji_help();
-
     let args = Args::parse();
 
     // 如果传入 --debug-info，打印接口信息后退出

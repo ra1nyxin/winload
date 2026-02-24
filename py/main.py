@@ -67,8 +67,7 @@ def parse_hex_color(s: str):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="winload",
-        description="Windows Network Load Monitor — nload-like TUI tool for Windows\n"
-        "Windows 网络负载监控工具 — 仿 Linux nload 的终端流量监控工具",
+        description="Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS",
     )
     parser.add_argument(
         "-t",
@@ -76,8 +75,7 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=500,
         metavar="MS",
-        help="Refresh interval in milliseconds (default: 500)\n"
-        "刷新间隔 (毫秒)，默认 500",
+        help="Refresh interval in milliseconds [default: 500]",
     )
     parser.add_argument(
         "-a",
@@ -85,7 +83,7 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=300,
         metavar="SEC",
-        help="Average window in seconds (default: 300)\n平均值计算窗口 (秒)，默认 300",
+        help="Average window in seconds [default: 300]",
     )
     parser.add_argument(
         "-d",
@@ -93,14 +91,14 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         metavar="NAME",
-        help="Default device name to display at startup\n启动时默认显示的设备名",
+        help="Default device name (partial match)",
     )
     parser.add_argument(
         "-e",
         "--emoji",
         action="store_true",
         default=False,
-        help="Enable emoji decorations in TUI 🎉\n启用 emoji 装饰模式 🎉",
+        help="Enable emoji decorations in TUI 🎉",
     )
     parser.add_argument(
         "-u",
@@ -108,7 +106,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=["bit", "byte"],
         default="bit",
-        help="Display unit: bit (default) or byte\n显示单位: bit (默认) 或 byte",
+        help="Display unit: bit (default) or byte",
     )
     parser.add_argument(
         "-m",
@@ -116,23 +114,21 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         metavar="VALUE",
-        help="Fixed graph Y-axis max (e.g. 100M, 1G, 500K), default: auto-scale\n"
-        "固定图形 Y 轴最大值 (如 100M, 1G, 500K)，默认自动缩放",
+        help="Fixed graph Y-axis max (e.g. 100M, 1G, 500K) [default: auto-scale]",
     )
     parser.add_argument(
         "-n",
         "--no-graph",
         action="store_true",
         default=False,
-        help="Hide traffic graphs, show only statistics\n隐藏流量图形，只显示统计数据",
+        help="Hide traffic graphs, show only statistics",
     )
     parser.add_argument(
         "-U",
         "--unicode",
         action="store_true",
         default=False,
-        help="Use Unicode block characters for graph (█▓░· instead of #|..)\n"
-        "使用 Unicode 方块字符绘图 (█▓░· 代替 #|..)",
+        help="Use Unicode block characters for graph (█▓░· instead of #|..)",
     )
     parser.add_argument(
         "-b",
@@ -140,38 +136,34 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=["fill", "color", "plain"],
         default="fill",
-        help="Bar style: fill (default), color, plain\n"
-        "状态栏样式: fill (默认，背景色铺满), color (背景色仅在文字上), plain (纯文字着色)",
+        help="Bar style: fill (default), color, plain",
     )
     parser.add_argument(
         "--in-color",
         type=parse_hex_color,
         default=None,
         metavar="HEX",
-        help="Incoming (download) graph color, hex RGB (e.g. 0x00d7ff), default: cyan\n"
-        "下行图形颜色, 十六进制 RGB (如 0x00d7ff)，默认: cyan",
+        help="Incoming (download) graph color, hex RGB (e.g. 0x00d7ff) [default: cyan]",
     )
     parser.add_argument(
         "--out-color",
         type=parse_hex_color,
         default=None,
         metavar="HEX",
-        help="Outgoing (upload) graph color, hex RGB (e.g. 0xffaf00), default: gold\n"
-        "上行图形颜色, 十六进制 RGB (如 0xffaf00)，默认: gold",
+        help="Outgoing (upload) graph color, hex RGB (e.g. 0xffaf00) [default: gold]",
     )
     parser.add_argument(
         "--hide-separator",
         action="store_true",
         default=False,
-        help="Hide separator line between header and panels\n"
-        "隐藏分隔线（头部下方的一行等于号）",
+        help="Hide separator line (the row of equals signs between header and panels)",
     )
     parser.add_argument(
         "-V",
         "--version",
         action="version",
-        version=f"winload {get_version()}",
-        help="Print version\n打印版本号",
+        version=f"winload {get_version()} (Python edition)",
+        help="Print version",
     )
     parser.add_argument(
         "--no-color",
