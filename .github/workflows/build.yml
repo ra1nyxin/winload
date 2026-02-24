@@ -18,6 +18,7 @@ jobs:
       should_build: ${{ steps.flags.outputs.should_build }}
       should_release: ${{ steps.flags.outputs.should_release }}
       should_publish: ${{ steps.flags.outputs.should_publish }}
+      should_publish_pypi: ${{ steps.flags.outputs.should_publish_pypi }}
       version: ${{ steps.flags.outputs.version }}
     steps:
       - name: Checkout
@@ -65,9 +66,15 @@ jobs:
             PUBLISH=true
           fi
           
+          # "pypi publish" / "publish pypi" = 发布到 PyPI
+          if echo "$MSG" | grep -qiE "pypi publish|publish pypi"; then
+            PUBLISH_PYPI=true
+          fi
+          
           echo "should_build=$BUILD"     >> "$GITHUB_OUTPUT"
           echo "should_release=$RELEASE" >> "$GITHUB_OUTPUT"
           echo "should_publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "should_publish_pypi=$PUBLISH_PYPI" >> "$GITHUB_OUTPUT"
           
           echo "📋 Flags: build=$BUILD release=$RELEASE publish=$PUBLISH"
 
@@ -607,3 +614,30 @@ jobs:
           git push
 
           echo "✅ winload-rust-bin updated!"
+
+  # ── 发布到 PyPI (Python 包) ───────────────────────────────
+  publish-pypi:
+    name: Publish to PyPI
+    needs: check
+    if: needs.check.outputs.should_publish_pypi == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Build package
+        working-directory: py
+        run: |
+          uv build
+
+      - name: Publish to PyPI
+        working-directory: py
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv publish --publish-url https://upload.pypi.org/legacy/

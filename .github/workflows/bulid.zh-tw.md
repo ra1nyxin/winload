@@ -10,13 +10,14 @@ CI/CD 流程完全由 **commit 資訊中的關鍵字** 驅動。推送至 `main`
 
 ## 🔑 關鍵字
 
-| Commit 資訊中的關鍵字 | 建置（6 平台） | GitHub Release | Scoop Bucket |
-|----------------------|:---:|:---:|:---:|
-| *（無關鍵字）* | ❌ | ❌ | ❌ |
-| `build action` | ✅ | ❌ | ❌ |
-| `build release` | ✅ | ✅ | ❌ |
-| `publish from release` | ❌ | ❌ | ✅ |
-| `build publish` | ✅ | ✅ | ✅ |
+| Commit 資訊中的關鍵字 | 建置（6 平台） | GitHub Release | Scoop Bucket | PyPI |
+|----------------------|:---:|:---:|:---:|:---:|
+| *（無關鍵字）* | ❌ | ❌ | ❌ | ❌ |
+| `build action` | ✅ | ❌ | ❌ | ❌ |
+| `build release` | ✅ | ✅ | ❌ | ❌ |
+| `publish from release` | ❌ | ❌ | ✅ | ❌ |
+| `build publish` | ✅ | ✅ | ✅ | ❌ |
+| `pypi publish` | ❌ | ❌ | ❌ | ✅ |
 
 > **說明:** `publish from release` 從現有的 Release 抓取二進位檔發布，不會重新建置。`build publish` 則是完整的流程。
 
@@ -36,9 +37,12 @@ git commit --allow-empty -m "ci: update scoop (publish from release)"
 
 # 完整流程：建置 + 發布 Release + 推送 Scoop
 git commit -m "release: v0.2.0 (build publish)"
+
+# 僅發布至 PyPI（不建置，不發布 Release）
+git commit --allow-empty -m "release: v0.2.0 (pypi publish)"
 ```
 
-## 🏗️ 建置目標
+## 🏗️ 建置目標 (Rust)
 
 | 平台 | 架構 | Target | 說明 |
 |------|:---:|--------|------|
@@ -49,14 +53,18 @@ git commit -m "release: v0.2.0 (build publish)"
 | macOS | x64 | `x86_64-apple-darwin` | 在 Apple Silicon runner 上編譯 |
 | macOS | ARM64 | `aarch64-apple-darwin` | 原生 Apple Silicon |
 
-## 📦 流程階段
+## 📦 流程階段 (Rust)
 
 ```
 check ──→ build ──→ release ──→ publish-scoop
   │         │         │              │
+  │         │         │              ├─ 從 Release 下載二進位檔
+  │         │         │              │  生成 winload.json
+  │         │         │              │  推送至 scoop-bucket
+  │         │         │              │
   │         │         │              └─ 從 Release 下載二進位檔
-  │         │         │                 生成 winload.json
-  │         │         │                 推送至 scoop-bucket 儲存庫
+  │         │         │                 生成 PKGBUILD & .SRCINFO
+  │         │         │                 推送至 AUR
   │         │         │
   │         │         └─ 下載建置產物
   │         │            刪除舊的 release/tag
@@ -70,7 +78,44 @@ check ──→ build ──→ release ──→ publish-scoop
      從 Cargo.toml 擷取版本號
 ```
 
-## 🍺 Scoop 發佈
+```mermaid
+flowchart TB
+    subgraph check["check"]
+        C1[解析 commit 資訊]
+        C2[從 Cargo.toml 擷取版本號]
+    end
+    
+    subgraph build["build"]
+        B1[編譯 6 個平台]
+        B2[上傳建置產物]
+    end
+    
+    subgraph release["release"]
+        R1[下載建置產物]
+        R2[刪除舊 release/tag]
+        R3[生成 release notes]
+        R4[建立 GitHub Release]
+    end
+    
+    subgraph publish["publish-scoop"]
+        P1[下載二進位檔]
+        P2[生成 winload.json]
+        P3[推送至 scoop-bucket]
+        P4[生成 PKGBUILD & .SRCINFO]
+        P5[推送至 AUR]
+    end
+    
+    C1 --> C2
+    C2 --> B1
+    B1 --> B2
+    B2 --> R1
+    R1 --> R2 --> R3 --> R4
+    R4 --> P1
+    P1 --> P2 --> P3
+    P1 --> P4 --> P5
+```
+
+## 🍺 Scoop 發佈 (Rust)
 
 `publish` 關鍵字會觸發 [scoop-bucket](https://github.com/VincentZyuApps/scoop-bucket) 儲存庫的更新：
 
@@ -79,13 +124,42 @@ check ──→ build ──→ release ──→ publish-scoop
 3. 生成 `winload.json` 清單檔案（包含 `64bit` 和 `arm64` 兩種架構）
 4. 推送至 `VincentZyuApps/scoop-bucket` 儲存庫
 
+## 🐧 AUR 發佈 (Rust)
+
+`publish` 關鍵字也會觸發 AUR 套件 [winload-rust-bin](https://aur.archlinux.org/packages/winload-rust-bin) 的更新：
+
+1. 從最新的 GitHub Release 下載 Linux x64 和 ARM64 二進位檔案
+2. 計算 SHA256 雜湊值
+3. 生成 `PKGBUILD` 和 `.SRCINFO`
+4. 透過 SSH 推送至 AUR
+
 ### 前置條件
 
-需在儲存庫的 **Settings → Secrets → Actions** 中設定 `SCOOP_BUCKET_TOKEN` 金鑰，值為具備 `repo` 權限的 GitHub Personal Access Token。
+需在儲存庫的 **Settings → Secrets → Actions** 中設定 `AUR_SSH_KEY` 金鑰，值為 AUR 使用者的 SSH 私密金鑰。
+
+## 🐍 PyPI 發佈 (Python)
+
+`pypi publish` 關鍵字會觸發將 Python 套件發佈至 PyPI：
+
+1. 透過 [astral-sh/setup-uv](https://github.com/astral-sh/setup-uv) 安裝 `uv`
+2. 在 `py/` 目錄下使用 `uv build` 建置套件
+3. 使用 `uv publish` 發佈至 PyPI
+
+### 前置條件
+
+需在儲存庫的 **Settings → Secrets → Actions** 中設定 `PYPI_TOKEN` 金鑰，值為具備 "Entire account" 權限的 PyPI API Token。
 
 ## 📌 版本號
 
-版本號自動從 `rust/Cargo.toml` 中擷取，用於：
+版本號自動從 `rust/Cargo.toml` (Rust) 或 `py/pyproject.toml` (Python) 中擷取，用於：
 - Release 標籤名（如 `v0.1.5`）
 - 產物檔名（如 `winload-windows-x86_64-v0.1.5.exe`）
-- Scoop 清單檔案中的版本欄位
+- Scoop/AUR/PyPI 清單檔案中的版本欄位
+
+## ⚙️ 前置條件彙總
+
+| 金鑰 | 取得方式 | 用途 |
+|------|----------|------|
+| `SCOOP_BUCKET_TOKEN` | GitHub PAT（需 `repo` 權限） | 推送至 Scoop bucket |
+| `AUR_SSH_KEY` | AUR 使用者 SSH 私密金鑰 | 推送至 AUR |
+| `PYPI_TOKEN` | PyPI API Token（Scope: "Entire account"） | 推送至 PyPI |
