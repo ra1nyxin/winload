@@ -44,20 +44,20 @@ Winload는 Roland Riegel의 고전적인 프로젝트인 [nload](https://github.
 pip install winload
 ```
 
-### 📥 Rust 버전 설치 (권장)
+## 📥 Rust 버전 설치 (권장)
 
-#### Windows (Scoop 이용)
+### Windows (Scoop 이용)
 ```powershell
 scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
-#### Arch Linux (AUR):
+### Arch Linux (AUR):
 ```bash
 paru -S winload-bin
 ```
 
-#### Linux (간편 설치 스크립트)
+### Linux (간편 설치 스크립트)
 > Debian/Ubuntu 및 파생 버전(Linux Mint, Pop!_OS, Deepin, UOS 등) 지원 (apt)
 
 > Fedora/RHEL 및 파생 버전(Rocky Linux, AlmaLinux, CentOS Stream 등) 지원 (dnf)

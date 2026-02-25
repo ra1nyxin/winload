@@ -45,20 +45,20 @@ https://github.com/rolandriegel/nload
 pip install winload
 ```
 
-### 📥 Rust 版 インストール（推奨）
+## 📥 Rust 版 インストール（推奨）
 
-#### Windows (Scoop)
+### Windows (Scoop)
 ```powershell
 scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
-#### Arch Linux (AUR):
+### Arch Linux (AUR):
 ```bash
 paru -S winload-bin
 ```
 
-#### Linux (ワンライナー)
+### Linux (ワンライナー)
 > Debian/Ubuntu およびその派生版（Linux Mint, Pop!_OS, Deepin, UOS等）をサポート (apt)
 
 > Fedora/RHEL およびその派生版（Rocky Linux, AlmaLinux, CentOS Stream等）をサポート (dnf)

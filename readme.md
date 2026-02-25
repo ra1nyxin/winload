@@ -46,20 +46,20 @@ https://github.com/rolandriegel/nload
 pip install winload
 ```
 
-### 📥 Rust Edition Installation (recommended)
+## 📥 Rust Edition Installation (recommended)
 
-#### Windows (Scoop)
+### Windows (Scoop)
 ```powershell
 scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
-#### Arch Linux (AUR):
+### Arch Linux (AUR):
 ```bash
 paru -S winload-rust-bin
 ```
 
-#### Linux (one-liner)
+### Linux (one-liner)
 > Supports Debian/Ubuntu and derivatives — Linux Mint, Pop!_OS, Deepin, UOS, etc. (apt)
 
 > Supports Fedora/RHEL and derivatives — Rocky Linux, AlmaLinux, CentOS Stream, etc. (dnf)

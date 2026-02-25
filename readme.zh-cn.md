@@ -45,20 +45,20 @@ https://github.com/rolandriegel/nload
 pip install winload
 ```
 
-### 📥 Rust 版本安装（推荐）
+## 📥 Rust 版本安装（推荐）
 
-#### Windows (Scoop)
+### Windows (Scoop)
 ```powershell
 scoop bucket add vincentzyu https://github.com/VincentZyuApps/scoop-bucket
 scoop install winload
 ```
 
-#### Arch Linux (AUR):
+### Arch Linux (AUR):
 ```bash
 paru -S winload-bin
 ```
 
-#### Linux (一键安装脚本)
+### Linux (一键安装脚本)
 > 支持 Debian/Ubuntu 及其下游 —— Linux Mint、Pop!_OS、Deepin、统信 UOS 等 (apt)
 
 > 支持 Fedora/RHEL 及其下游 —— Rocky Linux、AlmaLinux、CentOS Stream 等 (dnf)
