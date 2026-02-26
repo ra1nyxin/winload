@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         prog="winload",
-        description=t("description"),
+        description=f"winload {get_version()} (Python edition)\n{t('description')}",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
