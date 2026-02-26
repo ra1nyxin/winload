@@ -133,6 +133,20 @@ jobs:
             binary: winload
             asset: winload-macos-aarch64
 
+          # ── Android aarch64 (Termux ARM64) ──
+          - target: aarch64-linux-android
+            os: ubuntu-latest
+            name: android-aarch64
+            binary: winload
+            asset: winload-android-aarch64
+
+          # ── Android x86_64 (Termux x86_64, 模拟器 / Chromebook) ──
+          - target: x86_64-linux-android
+            os: ubuntu-latest
+            name: android-x86_64
+            binary: winload
+            asset: winload-android-x86_64
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,6 +168,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.cross_packages }}
+
+      # Android: 配置 NDK 交叉编译工具链 (Termux 最低 API 24 = Android 7.0)
+      - name: Setup Android NDK
+        if: contains(matrix.target, 'android')
+        shell: bash
+        run: |
+          NDK_HOME="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          echo "📦 Using NDK: $NDK_HOME"
+          TOOLCHAIN="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          ls "$TOOLCHAIN" | head -20
+
+          if [[ "${{ matrix.target }}" == "aarch64-linux-android" ]]; then
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
+            echo "CC_aarch64_linux_android=${TOOLCHAIN}/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
+            echo "AR_aarch64_linux_android=${TOOLCHAIN}/llvm-ar" >> "$GITHUB_ENV"
+          elif [[ "${{ matrix.target }}" == "x86_64-linux-android" ]]; then
+            echo "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/x86_64-linux-android24-clang" >> "$GITHUB_ENV"
+            echo "CC_x86_64_linux_android=${TOOLCHAIN}/x86_64-linux-android24-clang" >> "$GITHUB_ENV"
+            echo "AR_x86_64_linux_android=${TOOLCHAIN}/llvm-ar" >> "$GITHUB_ENV"
+          fi
+          echo "✅ Android NDK configured for ${{ matrix.target }}"
 
       # Windows: 下载 Npcap SDK，pcap crate 链接 wpcap.lib 需要
       - name: Install Npcap SDK (Windows only)
@@ -185,7 +220,7 @@ jobs:
           Write-Host "✅ Npcap SDK ready"
 
       - name: Install Linux packaging tools
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !contains(matrix.target, 'android')
         run: |
           cargo install cargo-deb cargo-generate-rpm
 
@@ -205,9 +240,9 @@ jobs:
             ldd target/${{ matrix.target }}/release/${{ matrix.binary }} 2>&1 || echo "✅ Statically linked (no dynamic dependencies)"
           fi
 
-      # Linux targets: 额外构建 DEB + RPM 包
+      # Linux targets: 额外构建 DEB + RPM 包 (排除 Android)
       - name: Build DEB & RPM packages
-        if: contains(matrix.target, 'linux')
+        if: contains(matrix.target, 'linux') && !contains(matrix.target, 'android')
         shell: bash
         working-directory: rust
         run: |
@@ -233,14 +268,14 @@ jobs:
           ls -lh renamed/
 
       - name: Upload DEB artifact
-        if: contains(matrix.target, 'linux')
+        if: contains(matrix.target, 'linux') && !contains(matrix.target, 'android')
         uses: actions/upload-artifact@v4
         with:
           name: winload-${{ matrix.name }}-${{ needs.check.outputs.version }}.deb
           path: rust/renamed/*.deb
 
       - name: Upload RPM artifact
-        if: contains(matrix.target, 'linux')
+        if: contains(matrix.target, 'linux') && !contains(matrix.target, 'android')
         uses: actions/upload-artifact@v4
         with:
           name: winload-${{ matrix.name }}-${{ needs.check.outputs.version }}.rpm
@@ -614,6 +649,128 @@ jobs:
           git push
 
           echo "✅ winload-rust-bin updated!"
+
+  # ── 发布到 npm（winload-rust-bin: 预编译二进制）────────────
+  # 原理同 esbuild / @biomejs/biome / turbo:
+  #   1. 为每个平台发布一个只含二进制的包 (os/cpu 字段让 npm 自动筛选)
+  #   2. 主包 winload-rust-bin 通过 optionalDependencies 引用它们
+  #   3. 用户 npm install 时只下载匹配当前平台的那一个
+  publish-npm:
+    name: Publish to npm
+    needs: [check, release]
+    if: always() && needs.check.outputs.should_publish == 'true' && (needs.release.result == 'success' || needs.release.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download binaries from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+
+          mkdir -p artifacts
+          echo "📥 Downloading binaries for npm publish..."
+
+          curl -fSL -o artifacts/winload-windows-x86_64.exe   "${BASE_URL}/winload-windows-x86_64-${VERSION}.exe"
+          curl -fSL -o artifacts/winload-windows-aarch64.exe  "${BASE_URL}/winload-windows-aarch64-${VERSION}.exe"
+          curl -fSL -o artifacts/winload-linux-x86_64         "${BASE_URL}/winload-linux-x86_64-${VERSION}"
+          curl -fSL -o artifacts/winload-linux-aarch64        "${BASE_URL}/winload-linux-aarch64-${VERSION}"
+          curl -fSL -o artifacts/winload-macos-x86_64         "${BASE_URL}/winload-macos-x86_64-${VERSION}"
+          curl -fSL -o artifacts/winload-macos-aarch64        "${BASE_URL}/winload-macos-aarch64-${VERSION}"
+
+          echo "✅ Downloaded:"
+          ls -lh artifacts/
+
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          NPM_VERSION="${VERSION#v}"
+          NPM_TAG="latest"
+          echo "📦 npm version: ${NPM_VERSION} (tag: ${NPM_TAG})"
+
+          # 平台定义: npm包名|os|cpu|源文件|二进制名
+          PLATFORMS=(
+            "winload-rust-bin-win32-x64|win32|x64|artifacts/winload-windows-x86_64.exe|winload.exe"
+            "winload-rust-bin-win32-arm64|win32|arm64|artifacts/winload-windows-aarch64.exe|winload.exe"
+            "winload-rust-bin-linux-x64|linux|x64|artifacts/winload-linux-x86_64|winload"
+            "winload-rust-bin-linux-arm64|linux|arm64|artifacts/winload-linux-aarch64|winload"
+            "winload-rust-bin-darwin-x64|darwin|x64|artifacts/winload-macos-x86_64|winload"
+            "winload-rust-bin-darwin-arm64|darwin|arm64|artifacts/winload-macos-aarch64|winload"
+          )
+
+          for entry in "${PLATFORMS[@]}"; do
+            IFS='|' read -r PKG_NAME PKG_OS PKG_CPU SOURCE_BIN BIN_NAME <<< "$entry"
+            echo ""
+            echo "📦 Publishing ${PKG_NAME}@${NPM_VERSION}..."
+
+            PKG_DIR="npm-platforms/${PKG_NAME}"
+            mkdir -p "${PKG_DIR}/bin"
+
+            cp "${SOURCE_BIN}" "${PKG_DIR}/bin/${BIN_NAME}"
+            chmod +x "${PKG_DIR}/bin/${BIN_NAME}"
+
+            cat > "${PKG_DIR}/package.json" << PKGJSON
+          {
+            "name": "${PKG_NAME}",
+            "version": "${NPM_VERSION}",
+            "description": "winload binary for ${PKG_OS}-${PKG_CPU}",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/${{ github.repository }}"
+            },
+            "os": ["${PKG_OS}"],
+            "cpu": ["${PKG_CPU}"],
+            "files": ["bin/"]
+          }
+          PKGJSON
+
+            cd "${PKG_DIR}"
+            npm publish --access public --tag "${NPM_TAG}" 2>&1 || echo "⚠️ Failed to publish ${PKG_NAME} (may already exist)"
+            cd "$GITHUB_WORKSPACE"
+          done
+
+      - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          NPM_VERSION="${VERSION#v}"
+          NPM_TAG="latest"
+
+          cd npm/winload-rust-bin
+
+          # 复制项目根目录的 README.md 作为 npm 页面展示
+          cp ../../README.md ./README.md
+
+          # 动态更新 package.json 中的版本号（版本以 Cargo.toml 为唯一真实源）
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${NPM_VERSION}';
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = '${NPM_VERSION}';
+            }
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          echo "📦 Publishing winload-rust-bin@${NPM_VERSION} (tag: ${NPM_TAG})..."
+          cat package.json
+          npm publish --access public --tag "${NPM_TAG}"
+
+          echo "✅ npm packages published!"
 
   # ── 发布到 PyPI (Python 包) ───────────────────────────────
   publish-pypi:
