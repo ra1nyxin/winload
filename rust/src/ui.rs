@@ -14,6 +14,7 @@ use ratatui::{
 use crate::graph;
 use crate::stats::{self, TrafficStats};
 use crate::{App, BarStyle, Unit};
+use crate::i18n::t;
 #[cfg(target_os = "windows")]
 use crate::loopback::LoopbackMode;
 
@@ -117,7 +118,8 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
 
         let header_text = if app.emoji {
             format!(
-                "🖧 Device {}{} ({}/{}){} 📡:",
+                "{} {}{} ({}/{}){} \u{1f4e1}:",
+                t("device_emoji"),
                 view.info.name,
                 addr_str,
                 app.current_idx + 1,
@@ -126,7 +128,8 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
             )
         } else {
             format!(
-                "Device {}{} ({}/{}){}:",
+                "{} {}{} ({}/{}){}:",
+                t("device"),
                 view.info.name,
                 addr_str,
                 app.current_idx + 1,
@@ -162,7 +165,7 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, show_loopback_warning: 
         let mut lines = vec![header];
         
         if show_loopback_warning {
-            let warn_text = " \u{26a0} Loopback: use --npcap (npcap.com)";
+            let warn_text = t("loopback_warning");
             let warn_style = maybe_strip(match app.bar_style {
                 BarStyle::Fill => Style::default().bg(Color::Red).fg(Color::White),
                 BarStyle::Color => Style::default().bg(Color::Red).fg(Color::White),
@@ -224,9 +227,9 @@ fn draw_panels(frame: &mut Frame, area: Rect, app: &App) {
 
     if let Some(view) = app.current_view() {
         let (in_label, out_label) = if app.emoji {
-            ("⬇️📥 Incoming", "⬆️📤 Outgoing")
+            (t("incoming_emoji"), t("outgoing_emoji"))
         } else {
-            ("Incoming", "Outgoing")
+            (t("incoming"), t("outgoing"))
         };
         draw_traffic_panel(
             frame,
@@ -388,59 +391,65 @@ fn draw_stats(frame: &mut Frame, area: Rect, stats: &TrafficStats, emoji: bool, 
     }
 }
 
+/// Terminal display width: CJK ideographs = 2 cols, common emoji = 2 cols,
+/// variation selectors = 0, ASCII & others = 1.
+fn str_display_width(s: &str) -> usize {
+    s.chars().map(|c| {
+        let cp = c as u32;
+        if cp == 0xFE0F || cp == 0xFE0E { return 0; } // variation selectors
+        if cp <= 0x7F { return 1; }
+        if (0x1100..=0x115F).contains(&cp)
+            || (0x2E80..=0x303E).contains(&cp)
+            || (0x3040..=0x33BF).contains(&cp)
+            || (0x3400..=0x4DBF).contains(&cp)
+            || (0x4E00..=0x9FFF).contains(&cp)
+            || (0xAC00..=0xD7AF).contains(&cp)
+            || (0xF900..=0xFAFF).contains(&cp)
+            || (0xFE30..=0xFE6F).contains(&cp)
+            || (0xFF01..=0xFF60).contains(&cp)
+            || (0xFFE0..=0xFFE6).contains(&cp)
+            || (0x2600..=0x27BF).contains(&cp)
+            || (0x2B00..=0x2B55).contains(&cp)
+            || (0x1F300..=0x1FBFF).contains(&cp)
+            || (0x20000..=0x2FA1F).contains(&cp)
+        { return 2; }
+        1
+    }).sum()
+}
+
 fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit, no_color: bool) -> Vec<Line<'static>> {
     let label_style = maybe_strip(Style::default()
         .fg(Color::Cyan)
         .add_modifier(Modifier::BOLD), no_color);
     let value_style = maybe_strip(Style::default().fg(Color::White), no_color);
 
-    if emoji {
-        vec![
-            Line::from(vec![
-                Span::styled("⚡ Curr: ", label_style),
-                Span::styled(stats::format_speed_unit(st.current, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled("📊  Avg: ", label_style),
-                Span::styled(stats::format_speed_unit(st.average, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled("📏  Min: ", label_style),
-                Span::styled(stats::format_speed_unit(st.minimum, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled("🚀  Max: ", label_style),
-                Span::styled(stats::format_speed_unit(st.maximum, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled("📦  Ttl: ", label_style),
-                Span::styled(stats::format_bytes(st.total), value_style),
-            ]),
-        ]
+    let keys: [&str; 5] = if emoji {
+        ["stat_curr_emoji", "stat_avg_emoji", "stat_min_emoji", "stat_max_emoji", "stat_ttl_emoji"]
     } else {
-        vec![
+        ["stat_curr", "stat_avg", "stat_min", "stat_max", "stat_ttl"]
+    };
+
+    let labels: Vec<&str> = keys.iter().map(|k| t(k)).collect();
+    let widths: Vec<usize> = labels.iter().map(|l| str_display_width(l)).collect();
+    let max_w = widths.iter().copied().max().unwrap_or(0);
+
+    let values = [
+        stats::format_speed_unit(st.current, unit),
+        stats::format_speed_unit(st.average, unit),
+        stats::format_speed_unit(st.minimum, unit),
+        stats::format_speed_unit(st.maximum, unit),
+        stats::format_bytes(st.total),
+    ];
+
+    labels.iter().zip(widths.iter()).zip(values.iter())
+        .map(|((label, &w), value)| {
+            let pad = " ".repeat(max_w.saturating_sub(w));
             Line::from(vec![
-                Span::styled("Curr: ", label_style),
-                Span::styled(stats::format_speed_unit(st.current, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled(" Avg: ", label_style),
-                Span::styled(stats::format_speed_unit(st.average, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled(" Min: ", label_style),
-                Span::styled(stats::format_speed_unit(st.minimum, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled(" Max: ", label_style),
-                Span::styled(stats::format_speed_unit(st.maximum, unit), value_style),
-            ]),
-            Line::from(vec![
-                Span::styled(" Ttl: ", label_style),
-                Span::styled(stats::format_bytes(st.total), value_style),
-            ]),
-        ]
-    }
+                Span::styled(format!("{}{}: ", pad, label), label_style),
+                Span::styled(value.clone(), value_style),
+            ])
+        })
+        .collect()
 }
 
 // ─── Help / Error ──────────────────────────────────────────
@@ -448,14 +457,14 @@ fn format_stats_lines(st: &TrafficStats, emoji: bool, unit: Unit, no_color: bool
 fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle, no_color: bool) {
     let help_text = if emoji {
         #[cfg(target_os = "windows")]
-        { " ⬅️/➡️ Switch Device | 🚪 q Quit | 💡 Loopback: --npcap" }
+        { t("help_bar_win_emoji") }
         #[cfg(not(target_os = "windows"))]
-        { " ⬅️/➡️ Switch Device | 🚪 q Quit" }
+        { t("help_bar_emoji") }
     } else {
         #[cfg(target_os = "windows")]
-        { " \u{2190}/\u{2192} Switch Device | q Quit | Loopback: --npcap" }
+        { t("help_bar_win") }
         #[cfg(not(target_os = "windows"))]
-        { " \u{2190}/\u{2192} Switch Device | q Quit" }
+        { t("help_bar") }
     };
 
     let width = area.width as usize;
@@ -481,9 +490,9 @@ fn draw_help(frame: &mut Frame, area: Rect, emoji: bool, bar_style: BarStyle, no
 
 fn draw_too_small(frame: &mut Frame, area: Rect, emoji: bool, no_color: bool) {
     let msg = if emoji {
-        "😭 Terminal too small! 📌"
+        t("terminal_too_small_emoji")
     } else {
-        "Terminal too small!"
+        t("terminal_too_small")
     };
     let x = area.width.saturating_sub(msg.len() as u16) / 2;
     let y = area.height / 2;

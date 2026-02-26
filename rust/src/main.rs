@@ -12,6 +12,7 @@
 
 mod collector;
 mod graph;
+mod i18n;
 mod loopback;
 mod stats;
 mod ui;
@@ -19,8 +20,10 @@ mod ui;
 use std::io;
 use std::time::{Duration, Instant};
 
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+
+use i18n::{Lang, t, set_lang};
 
 use collector::{Collector, DeviceInfo};
 use loopback::{LoopbackCounters, LoopbackMode};
@@ -28,23 +31,21 @@ use stats::StatisticsEngine;
 
 // ─── 单位枚举 ─────────────────────────────────────────────
 
-/// 显示单位
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Unit {
-    /// 以 Bit/s 显示速率 (默认) / Display rates in Bit/s (default)
+    /// Display rates in Bit/s (default)
     Bit,
-    /// 以 Byte/s 显示速率 / Display rates in Byte/s
+    /// Display rates in Byte/s
     Byte,
 }
 
-/// 状态栏/帮助栏样式
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum BarStyle {
-    /// 背景色铺满整行 (默认) / Background color fills entire line (default)
+    /// Background color fills entire line (default)
     Fill,
-    /// 背景色仅在文字上 / Background color only on text
+    /// Background color only on text
     Color,
-    /// 无背景色，纯文字着色 / No background, text color only
+    /// No background, text color only
     Plain,
 }
 
@@ -82,86 +83,72 @@ pub fn parse_hex_color(s: &str) -> Result<ratatui::style::Color, String> {
 // ─── CLI 参数 ──────────────────────────────────────────────
 
 /// Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS
-/// 网络负载监控工具 — 仿 Linux nload 的终端网络流量监控工具
 #[derive(Parser)]
-#[command(name = "winload", version = "0.1.6-beta.3 (Rust edition)", about)]
+#[command(name = "winload", version = "0.1.6-beta.4 (Rust edition)")]
 struct Args {
     /// Refresh interval in milliseconds
-    /// 刷新间隔（毫秒）
     #[arg(short = 't', long = "interval", default_value = "500")]
     interval: u64,
 
     /// Average window in seconds
-    /// 平均窗口时间（秒）
     #[arg(short = 'a', long = "average", default_value = "300")]
     average: u64,
 
     /// Default device name (partial match)
-    /// 默认网卡名称（支持部分匹配）
     #[arg(short = 'd', long = "device")]
     device: Option<String>,
 
     /// Print debug info about network interfaces and exit
-    /// 打印网卡调试信息并退出
     #[arg(long = "debug-info")]
     debug_info: bool,
 
     /// Enable emoji decorations in TUI and output
-    /// 在 TUI 和输出中启用 emoji 装饰
     #[arg(short = 'e', long = "emoji")]
     emoji: bool,
 
-    /// Use Unicode block characters for graph (█▓░· instead of #|..)
-    /// 使用 Unicode 块字符绘制图形（█▓░· 代替 #|..）
+    /// Use Unicode block characters for graph
     #[arg(short = 'U', long = "unicode")]
     unicode: bool,
 
     /// Display unit: bit (default) or byte
-    /// 显示单位：bit（默认）或 byte
     #[arg(short = 'u', long = "unit", value_enum, default_value = "bit")]
     unit: Unit,
 
-    /// Bar style for header/label/help: fill (default), color, plain
-    /// 状态栏/帮助栏样式：fill（默认），color，plain
+    /// Bar style for header/label/help
     #[arg(short = 'b', long = "bar-style", value_enum, default_value = "fill")]
     bar_style: BarStyle,
 
-    /// Incoming (download) graph color, hex RGB (e.g. 0x00d7ff). Default: cyan
-    /// 入站（下载）图形颜色，十六进制 RGB（如 0x00d7ff）。默认：青色
+    /// Incoming (download) graph color, hex RGB
     #[arg(long = "in-color", value_parser = parse_hex_color)]
     in_color: Option<ratatui::style::Color>,
 
-    /// Outgoing (upload) graph color, hex RGB (e.g. 0xffaf00). Default: gold
-    /// 出站（上传）图形颜色，十六进制 RGB（如 0xffaf00）。默认：金色
+    /// Outgoing (upload) graph color, hex RGB
     #[arg(long = "out-color", value_parser = parse_hex_color)]
     out_color: Option<ratatui::style::Color>,
 
-    /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K). Default: auto-scale
-    /// 固定图形 Y 轴最大值（如 100M、1G、500K）。默认：自动缩放
+    /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K)
     #[arg(short = 'm', long = "max", value_parser = parse_max_value)]
     max: Option<f64>,
 
     /// Hide traffic graphs, show only statistics
-    /// 隐藏流量图形，仅显示统计信息
     #[arg(short = 'n', long = "no-graph")]
     no_graph: bool,
 
-    /// Hide separator line (the row of equals signs between header and panels)
-    /// 隐藏分隔线（标题和面板之间的等号行）
+    /// Hide separator line
     #[arg(long = "hide-separator")]
     hide_separator: bool,
 
-    /// Disable all TUI colors (monochrome mode). Press 'c' to toggle at runtime
-    /// 禁用所有 TUI 颜色（单色模式）。运行时按 'c' 切换
+    /// Disable all TUI colors (monochrome mode)
     #[arg(long = "no-color")]
     no_color: bool,
 
-    /// [Windows only] Use Npcap to capture loopback traffic (recommended)
-    /// Requires Npcap installed: https://npcap.com/#download
-    /// [仅 Windows] 使用 Npcap 捕获回环流量（推荐）
-    /// 需要安装 Npcap：https://npcap.com/#download
+    /// Use Npcap to capture loopback traffic [Windows only]
     #[arg(long = "npcap")]
     npcap: bool,
+
+    /// Display language
+    #[arg(long = "lang", value_enum, default_value = "en-us")]
+    lang: Lang,
 }
 
 // ─── App 状态 ──────────────────────────────────────────────
@@ -361,8 +348,59 @@ fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
 
 // ─── 入口 ──────────────────────────────────────────────────
 
+fn pre_scan_lang() -> Lang {
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if args[i] == "--lang" {
+            if let Some(val) = args.get(i + 1) {
+                return match val.as_str() {
+                    "zh-cn" => Lang::ZhCn,
+                    "zh-tw" => Lang::ZhTw,
+                    _ => Lang::EnUs,
+                };
+            }
+        }
+        if let Some(rest) = args[i].strip_prefix("--lang=") {
+            return match rest {
+                "zh-cn" => Lang::ZhCn,
+                "zh-tw" => Lang::ZhTw,
+                _ => Lang::EnUs,
+            };
+        }
+    }
+    Lang::EnUs
+}
+
+fn build_translated_command() -> clap::Command {
+    Args::command()
+        .about(t("description"))
+        .mut_arg("interval", |a| a.help(t("help_interval")))
+        .mut_arg("average", |a| a.help(t("help_average")))
+        .mut_arg("device", |a| a.help(t("help_device")))
+        .mut_arg("debug_info", |a| a.help(t("help_debug_info")))
+        .mut_arg("emoji", |a| a.help(t("help_emoji")))
+        .mut_arg("unicode", |a| a.help(t("help_unicode")))
+        .mut_arg("unit", |a| a.help(t("help_unit")))
+        .mut_arg("bar_style", |a| a.help(t("help_bar_style")))
+        .mut_arg("in_color", |a| a.help(t("help_in_color")))
+        .mut_arg("out_color", |a| a.help(t("help_out_color")))
+        .mut_arg("max", |a| a.help(t("help_max")))
+        .mut_arg("no_graph", |a| a.help(t("help_no_graph")))
+        .mut_arg("hide_separator", |a| a.help(t("help_hide_separator")))
+        .mut_arg("no_color", |a| a.help(t("help_no_color")))
+        .mut_arg("npcap", |a| a.help(t("help_npcap")))
+        .mut_arg("lang", |a| a.help(t("help_lang")))
+}
+
 fn main() -> io::Result<()> {
-    let args = Args::parse();
+    // Pre-scan --lang before clap parses (for translated --help)
+    let lang = pre_scan_lang();
+    set_lang(lang);
+
+    let cmd = build_translated_command();
+    let matches = cmd.get_matches();
+    let args = Args::from_arg_matches(&matches)
+        .unwrap_or_else(|e| e.exit());
 
     // 如果传入 --debug-info，打印接口信息后退出
     if args.debug_info {
