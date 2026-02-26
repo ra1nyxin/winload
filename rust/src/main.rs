@@ -84,7 +84,7 @@ pub fn parse_hex_color(s: &str) -> Result<ratatui::style::Color, String> {
 
 /// Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS
 #[derive(Parser)]
-#[command(name = "winload", version = "0.1.6-beta.4 (Rust edition)")]
+#[command(name = "winload", version = concat!(env!("CARGO_PKG_VERSION"), " (Rust edition)"))]
 struct Args {
     /// Refresh interval in milliseconds
     #[arg(short = 't', long = "interval", default_value = "500")]

@@ -18,6 +18,7 @@ The CI/CD pipeline is driven entirely by **commit message keywords**. Push to `m
 | `publish from release` | ❌ | ❌ | ✅ | ❌ |
 | `build publish` | ✅ | ✅ | ✅ | ❌ |
 | `pypi publish` | ❌ | ❌ | ❌ | ✅ |
+| `build publish` + `pypi publish` | ✅ | ✅ | ✅ | ✅ |
 
 > **Note:** `publish from release` fetches binaries from an existing Release without rebuilding. `build publish` does the full pipeline.
 
@@ -40,6 +41,9 @@ git commit -m "release: v0.2.0 (build publish)"
 
 # Publish to PyPI only (no build, no release)
 git commit --allow-empty -m "release: v0.2.0 (pypi publish)"
+
+# Full pipeline for BOTH Rust + Python: build + release + Scoop/AUR/npm + PyPI
+git commit --allow-empty -m "release: v0.2.0 (build publish, pypi publish)"
 ```
 
 ## 🏗️ Build Targets (Rust)
@@ -187,6 +191,8 @@ The version is automatically extracted from `rust/Cargo.toml` (Rust) or `py/pypr
 - Release tag name (e.g. `v0.1.5`)
 - Artifact filenames (e.g. `winload-windows-x86_64-v0.1.5.exe`)
 - Scoop/AUR/npm/PyPI manifest version field
+
+> **Note:** The npm package version also comes from `rust/Cargo.toml`. During CI, the `publish-npm` job dynamically injects the version into `package.json` — the `0.0.0` placeholder in the repository is never published.
 
 ## ⚙️ Prerequisites Summary
 

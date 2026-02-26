@@ -18,6 +18,7 @@ CI/CD 流程完全由 **commit 資訊中的關鍵字** 驅動。推送至 `main`
 | `publish from release` | ❌ | ❌ | ✅ | ❌ |
 | `build publish` | ✅ | ✅ | ✅ | ❌ |
 | `pypi publish` | ❌ | ❌ | ❌ | ✅ |
+| `build publish` + `pypi publish` | ✅ | ✅ | ✅ | ✅ |
 
 > **說明:** `publish from release` 從現有的 Release 抓取二進位檔發布，不會重新建置。`build publish` 則是完整的流程。
 
@@ -40,7 +41,8 @@ git commit -m "release: v0.2.0 (build publish)"
 
 # 僅發布至 PyPI（不建置，不發布 Release）
 git commit --allow-empty -m "release: v0.2.0 (pypi publish)"
-```
+# Rust + Python 全套：建置 + Release + Scoop/AUR/npm + PyPI
+git commit --allow-empty -m "release: v0.2.0 (build publish, pypi publish)"```
 
 ## 🏗️ 建置目標 (Rust)
 
@@ -187,6 +189,8 @@ flowchart TB
 - Release 標籤名（如 `v0.1.5`）
 - 產物檔名（如 `winload-windows-x86_64-v0.1.5.exe`）
 - Scoop/AUR/npm/PyPI 清單檔案中的版本欄位
+
+> **注意：** npm 套件的版本號同樣來自 `rust/Cargo.toml`。CI 中 `publish-npm` 任務會在發佈前將版本號動態注入 `package.json` —— 儲存庫中的 `0.0.0` 佔位符不會被發佈。
 
 ## ⚙️ 前置條件彙總
 
