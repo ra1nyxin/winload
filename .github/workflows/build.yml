@@ -760,7 +760,7 @@ jobs:
           NPM_TAG="latest"
 
           # 复制项目根目录的 readme.md 作为 npm 页面展示
-          cp readme.md npm/winload-rust-bin/README.md
+          cp readme.md npm/winload-rust-bin/readme.md
 
           cd npm/winload-rust-bin
 
@@ -794,6 +794,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
+      - name: Copy readme for PyPI
+        run: cp readme.md py/readme.md
+
       - name: Build package
         working-directory: py
         run: |
@@ -823,7 +826,7 @@ jobs:
         run: |
           pwd
           ls -la
-          cp ./readme.md ./rust/README.md
+          cp ./readme.md ./rust/readme.md
 
       - name: Publish to crates.io
         env:

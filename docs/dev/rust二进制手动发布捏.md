@@ -1599,7 +1599,7 @@ NPM_TAG="latest"
 cd /path/to/winload   # ← 替换为项目实际路径
 
 # 复制 README（npm 页面展示用）
-cp readme.md npm/winload-rust-bin/README.md
+cp readme.md npm/winload-rust-bin/readme.md
 
 cd npm/winload-rust-bin
 
@@ -1710,7 +1710,7 @@ version = "0.1.7-beta.4"  # ← 版本号
 edition = "2021"
 description = "Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS"
 license = "MIT"
-readme = "../README.md"
+readme = "../readme.md"
 
 [[bin]]
 name = "winload"           # ← 二进制名称（必须和 package.name 一致）

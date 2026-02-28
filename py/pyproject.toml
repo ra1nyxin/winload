@@ -2,7 +2,7 @@
 name = "winload"
 version = "0.1.7-rc.3"
 description = "Network Load Monitor - nload-like TUI tool for Windows"
-readme = "README.md"
+readme = "readme.md"
 license = { text = "MIT" }
 authors = [
     { name = "VincentZyu", email = "1830540513zyu@gmail.com" }
