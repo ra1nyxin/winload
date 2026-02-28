@@ -1675,13 +1675,126 @@ npx winload-rust-bin --help
 
 ---
 
+## 📦 crates.io 发布
+
+将包发布到 crates.io，用户可以通过 `cargo install winload` 安装。
+
+### 前置条件
+
+1. **注册 crates.io 账号**：https://crates.io
+2. **获取 API Token**：
+   - 登录后访问 https://crates.io/settings/tokens
+   - 点击 "New Token"，输入名称（如 "winload-publish"）
+   - 保存 token（只会显示一次）
+
+### 登录 crates.io
+
+```bash
+# 方式一：交互式登录（会弹出浏览器）
+cargo login
+
+# 方式二：直接用 token（CI 环境推荐）
+cargo login "YOUR_API_TOKEN"
+```
+
+### 手动发布步骤
+
+#### Step 1: 确认 Cargo.toml 配置
+
+`rust/Cargo.toml` 中的 `[package]` 段决定发布内容：
+
+```toml
+[package]
+name = "winload"           # ← crate 名称，用户用 cargo install winload 安装
+version = "0.1.7-beta.4"  # ← 版本号
+edition = "2021"
+description = "Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS"
+license = "MIT"
+readme = "../README.md"
+
+[[bin]]
+name = "winload"           # ← 二进制名称（必须和 package.name 一致）
+path = "src/main.rs"
+```
+
+#### Step 2: 构建发布版本
+
+```bash
+cd rust
+
+# 构建发布版本
+cargo build --release
+
+# 验证产物
+ls -lh target/release/winload
+```
+
+#### Step 3: 发布到 crates.io
+
+```bash
+# 发布到 crates.io
+cargo publish
+
+# 如果是预发布版本（如 beta、alpha），可以用 --token 指定 tag
+cargo publish --token "YOUR_API_TOKEN"
+```
+
+#### Step 4: 验证发布成功
+
+```bash
+# 查看 crates.io 页面
+# https://crates.io/crates/winload
+
+# 验证安装（可能需要几分钟生效）
+cargo install winload
+winload --version
+```
+
+### 发布预发布版本（beta/alpha/rc）
+
+crates.io 默认只显示 "latest" 版本的 crate。要发布预发布版本并让用户可以安装：
+
+```bash
+# 发布时带上 --allow-dirty（如果源码有未提交的改动）
+# 版本号带 -beta.X 或 -rc.X 都会自动标记为预发布
+
+cargo publish --token "YOUR_TOKEN"
+
+# 用户可以通过指定版本安装：
+cargo install winload --version "=0.1.7-beta.4"
+
+# 或安装最新的 beta：
+cargo install winload --beta
+```
+
+### 常见问题
+
+| 现象 | 原因 | 解决 |
+|---|---|---|
+| `error: crate name already exists` | 包名被占用 | 换一个包名（如 `winload-cli`）|
+| `error: version already exists` | 该版本已发布 | 升版本号再发，crates.io 不允许覆盖 |
+| `error: api token rejected` | token 无效或权限不足 | 确认 token 是 "Read and write" 权限 |
+| 发布后无法 `cargo install` | 需要等待几分钟索引更新 | 等几分钟后重试 |
+
+### crates.io vs 其他包管理器
+
+| 特点 | crates.io | 其他（npm/scoop/homebrew）|
+|------|-----------|--------------------------|
+| 安装方式 | `cargo install` | `npm i` / `scoop install` / `brew install` |
+| 优势 | 官方、简单、无需额外配置 | 用户基数大、体验统一 |
+| 劣势 | 需要 Rust 环境、编译慢 | 需要维护多套包定义 |
+| 推荐 | ✅ 适合 Rust 用户 | ✅ 适合非 Rust 用户 |
+
+---
+
 ## 🎯 推荐发布顺序
 
 ### 第一批（简单且用户多）
 1. ✅ **Scoop** — 已有 CI 自动化 ✨
-2. ✅ **npm** — 已有 CI 自动化 ✨（esbuild 模式，6 平台包 + 主包）
-3. ✅ **DEB** — `cargo-deb` 一条命令出包
-4. ✅ **AUR** — 写 PKGBUILD + push 到 AUR
+2. ✅ **crates.io** — `cargo install winload` 直接安装
+3. ✅ **npm** — 已有 CI 自动化 ✨（esbuild 模式，6 平台包 + 主包）
+4. ✅ **DEB** — `cargo-deb` 一条命令出包
+5. ✅ **AUR** — 写 PKGBUILD + push 到 AUR
 
 ### 第二批
 4. ✅ **Homebrew** — 创建 tap 仓库，写 Formula
@@ -1705,6 +1818,7 @@ npx winload-rust-bin --help
 - [ ] 构建所有平台二进制（本地或 GitHub Actions）
 - [ ] 计算所有二进制的 SHA256 哈希
 - [ ] 创建 GitHub Release 并上传二进制
+- [ ] 发布到 crates.io（`cargo publish`）
 - [ ] 构建并上传 DEB 包（amd64）
 - [ ] 构建并上传 RPM 包（x86_64）
 - [ ] 更新 Scoop manifest（CI 自动化 / 手动更新 version+hash）
@@ -1713,7 +1827,7 @@ npx winload-rust-bin --help
 - [ ] 更新 AUR PKGBUILD（更新 pkgver、sha256sums，重新生成 .SRCINFO）
 - [ ] 更新 Alpine APKBUILD（更新 pkgver，运行 `abuild checksum`，提 MR）
 - [ ] 更新 Termux TUR build.sh（更新 TERMUX_PKG_VERSION + SHA256，提 PR）
-- [ ] 测试安装：`scoop install winload`、`brew install winload`、`paru -S winload-rust-bin`、`paru -S winload-rust`
+- [ ] 测试安装：`scoop install winload`、`cargo install winload`、`brew install winload`、`paru -S winload-rust-bin`、`paru -S winload-rust`
 - [ ] 测试安装：Alpine `apk add winload`、Termux `pkg install winload`
 
 > 🤖 后续 CI 自动化后，DEB/RPM/AUR 会自动发布 x86_64 + aarch64 双架构（都用 musl 零依赖）。
