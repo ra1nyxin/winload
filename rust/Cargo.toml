@@ -10,6 +10,9 @@ readme = "../readme.md"
 name = "winload"
 path = "src/main.rs"
 
+[build-dependencies]
+winres = "0.1"
+
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
@@ -46,3 +49,9 @@ assets = [
 assets = [
     { source = "target/release/winload", dest = "/usr/bin/winload", mode = "755" },
 ]
+
+[package.metadata.winres]
+version = "0.1.0"
+
+[package.metadata.winres.compatibility]
+"win32-api-levels" = { base = "elevated" }
