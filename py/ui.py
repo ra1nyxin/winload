@@ -8,6 +8,7 @@ import sys
 from typing import List, Optional
 
 from collector import Collector, DeviceInfo
+from i18n import t
 from stats import StatisticsEngine, TrafficStats, format_speed, format_speed_unit, format_bytes
 from graph import render_graph, next_power_of_2_scaled, get_graph_scale_label_unit
 
@@ -169,12 +170,12 @@ class UI:
         addr_str = f" [{addr}]" if addr else ""
         if self.emoji:
             header = (
-                f"🖧 Device {view.name}{addr_str} "
+                f"{t('device_emoji')} {view.name}{addr_str} "
                 f"({device_idx + 1}/{len(self.views)}) 📡:"
             )
         else:
             header = (
-                f"Device {view.name}{addr_str} "
+                f"{t('device')} {view.name}{addr_str} "
                 f"({device_idx + 1}/{len(self.views)}):"
             )
         header_attr = self._color(self._get_bar_attr(self.COLOR_HEADER, bold=True))
@@ -185,7 +186,7 @@ class UI:
 
         # ── Loopback 警告（仅 Windows）──
         if self._is_loopback_on_windows(view):
-            warning = " \u26a0 Loopback traffic stats are not available on Windows"
+            warning = t("loopback_warning")
             warn_attr = self._color(self._get_bar_attr(self.COLOR_HELP))
             if self.bar_style == "fill":
                 warning = warning.ljust(max_x - 1)
@@ -208,7 +209,7 @@ class UI:
             return
 
         # ── Incoming 面板 ──
-        in_label = "⬇️📥 Incoming" if self.emoji else "Incoming"
+        in_label = t("incoming_emoji") if self.emoji else t("incoming")
         self._draw_panel(
             start_row=row,
             max_x=max_x,
@@ -221,7 +222,7 @@ class UI:
         row += panel_height
 
         # ── Outgoing 面板 ──
-        out_label = "⬆️📤 Outgoing" if self.emoji else "Outgoing"
+        out_label = t("outgoing_emoji") if self.emoji else t("outgoing")
         self._draw_panel(
             start_row=row,
             max_x=max_x,
@@ -235,9 +236,9 @@ class UI:
 
         # ── 底部帮助行 ──
         if self.emoji:
-            help_text = " ⬅️/➡️ Switch Device | 🚪 q Quit"
+            help_text = t("help_bar_emoji")
         else:
-            help_text = " ←/→ Switch Device | q Quit"
+            help_text = t("help_bar")
         help_attr = self._color(self._get_bar_attr(self.COLOR_HELP))
         if self.bar_style == "fill":
             help_text = help_text.ljust(max_x - 1)
@@ -381,27 +382,44 @@ class UI:
         # plain: 无背景色，纯前景着色
         return attr
 
+    @staticmethod
+    def _str_display_width(s: str) -> int:
+        """计算字符串在终端中的显示宽度（CJK 字符占 2 列）"""
+        w = 0
+        for ch in s:
+            cp = ord(ch)
+            if (0x1100 <= cp <= 0x115F or 0x2E80 <= cp <= 0x9FFF
+                    or 0xAC00 <= cp <= 0xD7AF or 0xF900 <= cp <= 0xFAFF
+                    or 0xFE30 <= cp <= 0xFE4F or 0xFF01 <= cp <= 0xFF60
+                    or 0xFFE0 <= cp <= 0xFFE6 or 0x20000 <= cp <= 0x2FA1F
+                    or 0x30000 <= cp <= 0x3134F):
+                w += 2
+            elif 0xFE00 <= cp <= 0xFE0F or 0xE0100 <= cp <= 0xE01EF:
+                pass  # variation selectors, 0 width
+            elif cp >= 0x1F000:
+                w += 2  # emoji
+            else:
+                w += 1
+        return w
+
     def _format_stats(self, stats: TrafficStats) -> List[str]:
-        """格式化 5 行统计文本"""
+        """格式化 5 行统计文本，冒号动态对齐"""
         fmt = lambda v: format_speed_unit(v, self.unit)
-        if self.emoji:
-            return [
-                f"⚡ Curr: {fmt(stats.current)}",
-                f"📊  Avg: {fmt(stats.average)}",
-                f"📏  Min: {fmt(stats.minimum)}",
-                f"🚀  Max: {fmt(stats.maximum)}",
-                f"📦  Ttl: {format_bytes(stats.total)}",
-            ]
-        return [
-            f"Curr: {fmt(stats.current)}",
-            f" Avg: {fmt(stats.average)}",
-            f" Min: {fmt(stats.minimum)}",
-            f" Max: {fmt(stats.maximum)}",
-            f" Ttl: {format_bytes(stats.total)}",
-        ]
+        suffix = "_emoji" if self.emoji else ""
+        keys = ["stat_curr", "stat_avg", "stat_min", "stat_max", "stat_ttl"]
+        labels = [t(k + suffix) for k in keys]
+        values = [fmt(stats.current), fmt(stats.average),
+                  fmt(stats.minimum), fmt(stats.maximum),
+                  format_bytes(stats.total)]
+        max_w = max(self._str_display_width(lb) for lb in labels)
+        lines = []
+        for lb, val in zip(labels, values):
+            pad = max_w - self._str_display_width(lb)
+            lines.append(f"{' ' * pad}{lb}: {val}")
+        return lines
 
     def _draw_too_small(self, max_y: int, max_x: int) -> None:
-        msg = "😭 Terminal too small! 📌" if self.emoji else "Terminal too small!"
+        msg = t("terminal_too_small_emoji") if self.emoji else t("terminal_too_small")
         y = max_y // 2
         x = max(0, (max_x - len(msg)) // 2)
         self._safe_addstr(

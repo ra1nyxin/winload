@@ -12,6 +12,7 @@
 
 mod collector;
 mod graph;
+mod i18n;
 mod loopback;
 mod stats;
 mod ui;
@@ -19,8 +20,10 @@ mod ui;
 use std::io;
 use std::time::{Duration, Instant};
 
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+
+use i18n::{Lang, t, set_lang};
 
 use collector::{Collector, DeviceInfo};
 use loopback::{LoopbackCounters, LoopbackMode};
@@ -28,23 +31,21 @@ use stats::StatisticsEngine;
 
 // ─── 单位枚举 ─────────────────────────────────────────────
 
-/// 显示单位
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Unit {
-    /// 以 Bit/s 显示速率 (默认)
+    /// Display rates in Bit/s (default)
     Bit,
-    /// 以 Byte/s 显示速率
+    /// Display rates in Byte/s
     Byte,
 }
 
-/// 状态栏/帮助栏样式
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum BarStyle {
-    /// 背景色铺满整行 (默认)
+    /// Background color fills entire line (default)
     Fill,
-    /// 背景色仅在文字上
+    /// Background color only on text
     Color,
-    /// 无背景色，纯文字着色
+    /// No background, text color only
     Plain,
 }
 
@@ -81,9 +82,9 @@ pub fn parse_hex_color(s: &str) -> Result<ratatui::style::Color, String> {
 
 // ─── CLI 参数 ──────────────────────────────────────────────
 
-/// Network Load Monitor — nload-like TUI tool
+/// Network Load Monitor — nload-like TUI tool for Windows/Linux/macOS
 #[derive(Parser)]
-#[command(name = "winload", version, about)]
+#[command(name = "winload", version = concat!(env!("CARGO_PKG_VERSION"), " (Rust edition)"))]
 struct Args {
     /// Refresh interval in milliseconds
     #[arg(short = 't', long = "interval", default_value = "500")]
@@ -105,7 +106,7 @@ struct Args {
     #[arg(short = 'e', long = "emoji")]
     emoji: bool,
 
-    /// Use Unicode block characters for graph (█▓░· instead of #|..)
+    /// Use Unicode block characters for graph
     #[arg(short = 'U', long = "unicode")]
     unicode: bool,
 
@@ -113,19 +114,19 @@ struct Args {
     #[arg(short = 'u', long = "unit", value_enum, default_value = "bit")]
     unit: Unit,
 
-    /// Bar style for header/label/help: fill (default), color, plain
+    /// Bar style for header/label/help
     #[arg(short = 'b', long = "bar-style", value_enum, default_value = "fill")]
     bar_style: BarStyle,
 
-    /// Incoming (download) graph color, hex RGB (e.g. 0x00d7ff). Default: cyan
+    /// Incoming (download) graph color, hex RGB
     #[arg(long = "in-color", value_parser = parse_hex_color)]
     in_color: Option<ratatui::style::Color>,
 
-    /// Outgoing (upload) graph color, hex RGB (e.g. 0xffaf00). Default: gold
+    /// Outgoing (upload) graph color, hex RGB
     #[arg(long = "out-color", value_parser = parse_hex_color)]
     out_color: Option<ratatui::style::Color>,
 
-    /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K). Default: auto-scale
+    /// Fixed graph Y-axis max (e.g. 100M, 1G, 500K)
     #[arg(short = 'm', long = "max", value_parser = parse_max_value)]
     max: Option<f64>,
 
@@ -133,18 +134,21 @@ struct Args {
     #[arg(short = 'n', long = "no-graph")]
     no_graph: bool,
 
-    /// Hide separator line (the row of equals signs between header and panels)
+    /// Hide separator line
     #[arg(long = "hide-separator")]
     hide_separator: bool,
 
-    /// Disable all TUI colors (monochrome mode). Press 'c' to toggle at runtime
+    /// Disable all TUI colors (monochrome mode)
     #[arg(long = "no-color")]
     no_color: bool,
 
-    /// [Windows only] Use Npcap to capture loopback traffic (recommended)
-    /// Requires Npcap installed: https://npcap.com/#download
+    /// Use Npcap to capture loopback traffic [Windows only]
     #[arg(long = "npcap")]
     npcap: bool,
+
+    /// Display language
+    #[arg(long = "lang", value_enum, default_value = "en-us")]
+    lang: Lang,
 }
 
 // ─── App 状态 ──────────────────────────────────────────────
@@ -344,67 +348,72 @@ fn run(terminal: &mut ratatui::DefaultTerminal, args: Args) -> io::Result<()> {
 
 // ─── 入口 ──────────────────────────────────────────────────
 
-/// 检查是否同时传入了 --help 和 --emoji，如果是则输出带 emoji 的帮助文本
-fn maybe_print_emoji_help() {
-    let raw: Vec<String> = std::env::args().collect();
-    let has_help = raw.iter().any(|a| a == "--help" || a == "-h");
-    let has_emoji = raw.iter().any(|a| a == "--emoji" || a == "-e");
-    if !(has_help && has_emoji) {
-        return;
+fn print_system_info() {
+    eprintln!("\nSystem: {} | Arch: {} | Target: {}", 
+        std::env::consts::OS, 
+        std::env::consts::ARCH,
+        env!("TARGET"));
+}
+
+fn pre_scan_lang() -> Lang {
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if args[i] == "--lang" {
+            if let Some(val) = args.get(i + 1) {
+                return match val.as_str() {
+                    "zh-cn" => Lang::ZhCn,
+                    "zh-tw" => Lang::ZhTw,
+                    _ => Lang::EnUs,
+                };
+            }
+        }
+        if let Some(rest) = args[i].strip_prefix("--lang=") {
+            return match rest {
+                "zh-cn" => Lang::ZhCn,
+                "zh-tw" => Lang::ZhTw,
+                _ => Lang::EnUs,
+            };
+        }
     }
+    Lang::EnUs
+}
 
-    let ver = env!("CARGO_PKG_VERSION");
-    print!(
-        r#"🖧✨ winload v{ver} — Network Load Monitor 🌐📡
-nload-like TUI tool for Windows/Linux/macOS
+fn build_translated_command() -> clap::Command {
+    let after_help = format!("\nSystem: {} | Arch: {} | Target: {}", 
+        std::env::consts::OS, 
+        std::env::consts::ARCH,
+        env!("TARGET"));
 
-🚀 Usage: winload [OPTIONS]
-
-⚙️  Options:
-  -t, --interval <MS>       ⏱️  Refresh interval in milliseconds [default: 500]
-  -a, --average <SECS>      📊 Average window in seconds [default: 300]
-  -d, --device <NAME>       🖧  Default device name (partial match)
-      --debug-info           🔍 Print debug info about network interfaces and exit
-  -e, --emoji                😀 Enable emoji decorations in TUI and output
-  -U, --unicode              █▓ Use Unicode block characters for graph
-  -u, --unit <bit|byte>      📐 Display unit: bit (default) or byte
-  -b, --bar-style <STYLE>    🎨 Bar style: fill (default), color, plain
-      --in-color <HEX>       ⬇️  Incoming graph color, hex RGB (e.g. 0x00d7ff)
-      --out-color <HEX>      ⬆️  Outgoing graph color, hex RGB (e.g. 0xffaf00)
-  -m, --max <VALUE>          📏 Fixed graph Y-axis max (e.g. 100M, 1G). Default: auto
-  -n, --no-graph             📋 Hide traffic graphs, show only statistics
-      --no-color               🎨 Disable all TUI colors (monochrome mode)
-
-🪟 Windows Loopback:
-      --npcap                🟢 Use Npcap to capture loopback traffic (recommended)
-                             📥 Download Npcap: https://npcap.com/#download
-
-  💬 Why? Windows loopback is short-circuited in tcpip.sys, bypassing NDIS,
-     so counters stay 0. Npcap uses a WFP callout to intercept before the short-circuit.
-  📖 Learn more: https://github.com/VincentZyuApps/winload/blob/main/docs/win_loopback.md
-
-⌨️  Keybindings:
-  ⬅️/➡️ or ⬆️/⬇️              Switch network device
-  c                         🎨 Toggle color on/off
-  q / Esc                   🚪 Quit
-
-💡 Examples:
-  winload                   Monitor all active interfaces
-  winload -t 200 -e         200ms refresh with emoji
-  winload -d Wi-Fi          Start on Wi-Fi adapter
-  winload --npcap           Capture 127.0.0.1 loopback traffic (Windows)
-
-🎉 Happy monitoring! 🐛
-"#
-    );
-    std::process::exit(0);
+    Args::command()
+        .about(t("description"))
+        .after_help(after_help)
+        .mut_arg("interval", |a| a.help(t("help_interval")))
+        .mut_arg("average", |a| a.help(t("help_average")))
+        .mut_arg("device", |a| a.help(t("help_device")))
+        .mut_arg("debug_info", |a| a.help(t("help_debug_info")))
+        .mut_arg("emoji", |a| a.help(t("help_emoji")))
+        .mut_arg("unicode", |a| a.help(t("help_unicode")))
+        .mut_arg("unit", |a| a.help(t("help_unit")))
+        .mut_arg("bar_style", |a| a.help(t("help_bar_style")))
+        .mut_arg("in_color", |a| a.help(t("help_in_color")))
+        .mut_arg("out_color", |a| a.help(t("help_out_color")))
+        .mut_arg("max", |a| a.help(t("help_max")))
+        .mut_arg("no_graph", |a| a.help(t("help_no_graph")))
+        .mut_arg("hide_separator", |a| a.help(t("help_hide_separator")))
+        .mut_arg("no_color", |a| a.help(t("help_no_color")))
+        .mut_arg("npcap", |a| a.help(t("help_npcap")))
+        .mut_arg("lang", |a| a.help(t("help_lang")))
 }
 
 fn main() -> io::Result<()> {
-    // 如果同时传了 --help + --emoji，输出带 emoji 的帮助后退出
-    maybe_print_emoji_help();
+    // Pre-scan --lang before clap parses (for translated --help)
+    let lang = pre_scan_lang();
+    set_lang(lang);
 
-    let args = Args::parse();
+    let cmd = build_translated_command();
+    let matches = cmd.get_matches();
+    let args = Args::from_arg_matches(&matches)
+        .unwrap_or_else(|e| e.exit());
 
     // 如果传入 --debug-info，打印接口信息后退出
     if args.debug_info {
@@ -421,5 +430,6 @@ fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
     let result = run(&mut terminal, args);
     ratatui::restore();
+    print_system_info();
     result
 }

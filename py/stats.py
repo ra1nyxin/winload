@@ -135,6 +135,9 @@ def format_speed(bytes_per_sec: float) -> str:
 
 def format_speed_unit(bytes_per_sec: float, unit: str = "bit") -> str:
     """根据单位选择格式化速率 (unit: 'bit' 或 'byte')"""
+    # 防御：inf / nan 视为 0（首帧 minimum 尚未更新时可能出现）
+    if bytes_per_sec != bytes_per_sec or bytes_per_sec == float("inf"):
+        bytes_per_sec = 0.0
     if unit == "byte":
         b = bytes_per_sec
         units = [
